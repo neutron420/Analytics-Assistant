@@ -1,0 +1,251 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COALESCE(sum(total_requests), 0) AS \"Total Translations\" FROM analytics_daily_metrics;",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Translations Processed",
+      "type": "stat"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT round(COALESCE(avg(avg_latency_ms), 0)::numeric, 1) AS \"Avg Latency (ms)\" FROM analytics_daily_metrics;",
+          "refId": "A"
+        }
+      ],
+      "title": "Mean Latency (ms)",
+      "type": "stat"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT round(COALESCE(sum(poor_feedback_count)::numeric / NULLIF(sum(good_feedback_count + poor_feedback_count), 0) * 100.0, 0)::numeric, 2) AS \"Downvote Rate %\" FROM analytics_daily_metrics;",
+          "refId": "A"
+        }
+      ],
+      "title": "Global Downvote Defect Rate %",
+      "type": "stat"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 0,
+        "y": 4
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT concat(source_language, ' ➔ ', target_language) AS \"Language Pair\", sum(total_requests) AS \"Total Volume\", round(avg(avg_quality_score)::numeric, 2) AS \"Mean Quality Score\", round(avg(avg_latency_ms)::numeric, 1) AS \"Avg Latency (ms)\" FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY \"Total Volume\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Translation Volume & Quality Score by Language Pair",
+      "type": "table"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 14,
+        "y": 4
+      },
+      "id": 5,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT concat(source_language, ' ➔ ', target_language) AS metric, round(avg(avg_latency_ms)::numeric, 0) AS value FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY value DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Latency Distribution by Language Pair (ms)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 6,
+      "options": {
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT provider AS metric, sum(total_requests) AS value FROM analytics_daily_metrics GROUP BY provider ORDER BY value DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Provider Volume Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT anomaly_type AS metric, count(*) AS value FROM analytics_anomalies GROUP BY anomaly_type ORDER BY value DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Flagged Quality Anomalies by Defect Type",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 8,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT id AS \"Anomaly ID\", anomaly_type AS \"Defect Category\", round(anomaly_score::numeric, 3) AS \"Severity Score\", diagnostic_details AS \"Diagnostic Context\", detected_at AS \"Timestamp (UTC)\" FROM analytics_anomalies ORDER BY detected_at DESC LIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent Flagged Quality Anomalies (Triage Audit Log)",
+      "type": "table"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["translation", "nlp", "quality-analytics"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "Translation Quality Analytics & Observability",
+  "uid": "translation-analytics-main",
+  "version": 1
+}

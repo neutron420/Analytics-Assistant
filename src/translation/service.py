@@ -131,3 +131,7 @@ class TranslationService:
         )
 
         return result
+
+
+# Singleton instance using environment configuration
+default_translation_service = TranslationService()
