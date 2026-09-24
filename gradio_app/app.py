@@ -30,6 +30,7 @@ from src.feedback.models import FeedbackSubmissionDTO
 from src.feedback.service import default_feedback_service
 from src.translation.models import TranslationRequestDTO, TranslationResultDTO
 from src.translation.service import default_translation_service
+from scripts.generate_platform_report import generate_executive_report
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1043,6 +1044,17 @@ def create_app() -> gr.Blocks:
                             interactive=False,
                         )
 
+                # Executive Report Generation Section for Admin
+                with gr.Column(elem_classes=["panel-card"]):
+                    gr.HTML("""
+                    <div class="section-label">Executive Platform Quality & Continuous Improvement Report</div>
+                    <div class="section-desc">Compile and export the complete official platform audit report combining live telemetry and PySpark batch quality metrics.</div>
+                    """)
+                    generate_report_btn = gr.Button("📄 Generate Official Platform Quality Report", variant="primary")
+                    report_markdown_display = gr.Markdown(
+                        value="*Click 'Generate Official Platform Quality Report' above to compile live telemetry and PySpark quality metrics.*"
+                    )
+
                 # Grafana Integration Notice
                 gr.HTML("""
                 <div class="panel-card" style="margin-top: 14px; background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.25);">
@@ -1164,13 +1176,30 @@ def create_app() -> gr.Blocks:
             outputs=[history_table],
         )
 
+        # Executive report generation action
+        generate_report_btn.click(
+            fn=generate_executive_report,
+            inputs=[],
+            outputs=[report_markdown_display],
+        )
+
     return demo
 
 
 if __name__ == "__main__":
+    import os
     app = create_app()
-    app.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        show_error=True,
-    )
+    target_port = int(os.environ.get("GRADIO_SERVER_PORT", 7860))
+    try:
+        app.launch(
+            server_name="0.0.0.0",
+            server_port=target_port,
+            show_error=True,
+        )
+    except OSError as err:
+        logger.warning(f"Port {target_port} was busy ({err}), falling back to dynamic port allocation...")
+        app.launch(
+            server_name="0.0.0.0",
+            server_port=None,
+            show_error=True,
+        )

@@ -16,8 +16,11 @@ FeedbackRatingType = Literal["GOOD", "POOR"]
 DefectReasonType = Literal[
     "INCORRECT_MEANING",
     "GRAMMAR",
+    "GRAMMAR_ISSUE",
     "TOO_LITERAL",
     "WRONG_CONTEXT",
+    "UNNATURAL_PHRASING",
+    "TERMINOLOGY_ISSUE",
     "OTHER",
 ]
 

@@ -116,6 +116,50 @@ def test_submit_poor_feedback_with_reason(feedback_service):
     assert res.reason == "TOO_LITERAL"
 
 
+@pytest.mark.parametrize(
+    "reason_code",
+    [
+        "INCORRECT_MEANING",
+        "GRAMMAR",
+        "GRAMMAR_ISSUE",
+        "TOO_LITERAL",
+        "WRONG_CONTEXT",
+        "UNNATURAL_PHRASING",
+        "TERMINOLOGY_ISSUE",
+        "OTHER",
+    ],
+)
+def test_submit_poor_feedback_all_taxonomy_reasons(feedback_service, reason_code):
+    svc, repo = feedback_service
+    dto = TranslationResultDTO(
+        request_id=uuid4(),
+        provider="huggingface",
+        source_text="Test sentence.",
+        source_language="en",
+        target_language="hi",
+        translation_time_ms=100,
+        status="COMPLETED",
+        options=[
+            TranslationOptionDTO(
+                option_id=uuid4(),
+                style_option="NATURAL",
+                translated_text="परीक्षण वाक्य।",
+            )
+        ],
+    )
+    repo.save_translation(dto)
+    opt_id = dto.options[0].option_id
+
+    submission = FeedbackSubmissionDTO(
+        option_id=opt_id,
+        rating="POOR",
+        reason=reason_code,
+    )
+    res = svc.record_feedback(submission)
+    assert res.rating == "POOR"
+    assert res.reason == reason_code
+
+
 def test_submit_poor_feedback_without_reason_fails(feedback_service):
     svc, repo = feedback_service
     dto = TranslationResultDTO(
