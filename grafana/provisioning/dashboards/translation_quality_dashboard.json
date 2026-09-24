@@ -11,6 +11,24 @@
   "panels": [
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 4,
         "w": 8,
@@ -20,7 +38,7 @@
       "id": 1,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -43,6 +61,33 @@
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 2000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 4,
         "w": 8,
@@ -66,15 +111,42 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT round(COALESCE(avg(avg_latency_ms), 0)::numeric, 1) AS \"Avg Latency (ms)\" FROM analytics_daily_metrics;",
+          "rawSql": "SELECT round(COALESCE(avg(avg_latency_ms), 0)::numeric, 1) AS \"Avg Latency\" FROM analytics_daily_metrics;",
           "refId": "A"
         }
       ],
-      "title": "Mean Latency (ms)",
+      "title": "Mean Latency",
       "type": "stat"
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 4,
         "w": 8,
@@ -98,15 +170,67 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT round(COALESCE(sum(poor_feedback_count)::numeric / NULLIF(sum(good_feedback_count + poor_feedback_count), 0) * 100.0, 0)::numeric, 2) AS \"Downvote Rate %\" FROM analytics_daily_metrics;",
+          "rawSql": "SELECT round(COALESCE(sum(poor_feedback_count)::numeric / NULLIF(sum(good_feedback_count + poor_feedback_count), 0) * 100.0, 0)::numeric, 2) AS \"Downvote Rate\" FROM analytics_daily_metrics;",
           "refId": "A"
         }
       ],
-      "title": "Global Downvote Defect Rate %",
+      "title": "Global Downvote Defect Rate",
       "type": "stat"
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mean Quality Score"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "yellow", "value": 75 },
+                    { "color": "green", "value": 88 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
       "gridPos": {
         "h": 8,
         "w": 14,
@@ -115,16 +239,19 @@
       },
       "id": 4,
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom"
-        }
+        "footer": {
+          "enablePagination": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
       },
       "pluginVersion": "10.1.0",
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT concat(source_language, ' ➔ ', target_language) AS \"Language Pair\", sum(total_requests) AS \"Total Volume\", round(avg(avg_quality_score)::numeric, 2) AS \"Mean Quality Score\", round(avg(avg_latency_ms)::numeric, 1) AS \"Avg Latency (ms)\" FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY \"Total Volume\" DESC;",
+          "rawSql": "SELECT concat(source_language, ' -> ', target_language) AS \"Language Pair\", sum(total_requests) AS \"Total Volume\", round(avg(avg_quality_score)::numeric, 2) AS \"Mean Quality Score\", round(avg(avg_latency_ms)::numeric, 1) AS \"Avg Latency (ms)\" FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY \"Total Volume\" DESC;",
           "refId": "A"
         }
       ],
@@ -133,6 +260,33 @@
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 160
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 8,
         "w": 10,
@@ -141,23 +295,48 @@
       },
       "id": 5,
       "options": {
-        "displayMode": "basic",
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
         "orientation": "horizontal",
-        "showUnfilled": true
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
       },
       "pluginVersion": "10.1.0",
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT concat(source_language, ' ➔ ', target_language) AS metric, round(avg(avg_latency_ms)::numeric, 0) AS value FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY value DESC;",
+          "rawSql": "SELECT concat(source_language, ' -> ', target_language) AS \"Pair\", round(avg(avg_latency_ms)::numeric, 0) AS \"Latency\" FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY \"Latency\" DESC;",
           "refId": "A"
         }
       ],
-      "title": "Latency Distribution by Language Pair (ms)",
+      "title": "Latency by Language Pair (ms)",
       "type": "bargauge"
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -166,18 +345,28 @@
       },
       "id": 6,
       "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value", "percent"]
+        },
         "pieType": "donut",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [],
           "fields": "",
-          "values": false
+          "values": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
         }
       },
       "pluginVersion": "10.1.0",
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT provider AS metric, sum(total_requests) AS value FROM analytics_daily_metrics GROUP BY provider ORDER BY value DESC;",
+          "rawSql": "SELECT provider AS \"Provider\", sum(total_requests) AS \"Requests\" FROM analytics_daily_metrics GROUP BY provider ORDER BY \"Requests\" DESC;",
           "refId": "A"
         }
       ],
@@ -186,6 +375,28 @@
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -195,13 +406,23 @@
       "id": 7,
       "options": {
         "displayMode": "gradient",
-        "orientation": "horizontal"
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
       },
       "pluginVersion": "10.1.0",
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT anomaly_type AS metric, count(*) AS value FROM analytics_anomalies GROUP BY anomaly_type ORDER BY value DESC;",
+          "rawSql": "SELECT anomaly_type AS \"Defect Type\", count(*) AS \"Occurrences\" FROM analytics_anomalies GROUP BY anomaly_type ORDER BY \"Occurrences\" DESC;",
           "refId": "A"
         }
       ],
@@ -210,6 +431,31 @@
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -218,13 +464,19 @@
       },
       "id": 8,
       "options": {
+        "footer": {
+          "enablePagination": true,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
         "showHeader": true
       },
       "pluginVersion": "10.1.0",
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT id AS \"Anomaly ID\", anomaly_type AS \"Defect Category\", round(anomaly_score::numeric, 3) AS \"Severity Score\", diagnostic_details AS \"Diagnostic Context\", detected_at AS \"Timestamp (UTC)\" FROM analytics_anomalies ORDER BY detected_at DESC LIMIT 50;",
+          "rawSql": "SELECT id AS \"ID\", anomaly_type AS \"Category\", round(anomaly_score::numeric, 2) AS \"Severity\", diagnostic_details AS \"Diagnostic Context\", to_char(detected_at, 'YYYY-MM-DD HH24:MI:SS') AS \"Timestamp (UTC)\" FROM analytics_anomalies ORDER BY id DESC LIMIT 50;",
           "refId": "A"
         }
       ],
@@ -247,5 +499,5 @@
   "timezone": "utc",
   "title": "Translation Quality Analytics & Observability",
   "uid": "translation-analytics-main",
-  "version": 1
+  "version": 2
 }
