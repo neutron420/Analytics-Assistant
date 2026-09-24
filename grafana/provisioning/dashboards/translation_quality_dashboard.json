@@ -4,10 +4,10 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
-  "liveNow": false,
+  "liveNow": true,
   "panels": [
     {
       "datasource": "PostgreSQL-Translation-Analytics",
@@ -31,7 +31,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 0
       },
@@ -52,11 +52,11 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT COALESCE(sum(total_requests), 0) AS \"Total Translations\" FROM analytics_daily_metrics;",
+          "rawSql": "SELECT count(*) AS \"Total Translations\" FROM translations;",
           "refId": "A"
         }
       ],
-      "title": "Total Translations Processed",
+      "title": "Total Translations (Live)",
       "type": "stat"
     },
     {
@@ -76,11 +76,11 @@
               },
               {
                 "color": "orange",
-                "value": 500
+                "value": 2000
               },
               {
                 "color": "red",
-                "value": 2000
+                "value": 8000
               }
             ]
           },
@@ -90,8 +90,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 0
       },
       "id": 2,
@@ -111,11 +111,11 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT round(COALESCE(avg(avg_latency_ms), 0)::numeric, 1) AS \"Avg Latency\" FROM analytics_daily_metrics;",
+          "rawSql": "SELECT round(COALESCE(avg(translation_time_ms), 0)::numeric, 1) AS \"Mean Latency\" FROM translations;",
           "refId": "A"
         }
       ],
-      "title": "Mean Latency",
+      "title": "Mean Latency (ms)",
       "type": "stat"
     },
     {
@@ -135,11 +135,11 @@
               },
               {
                 "color": "yellow",
-                "value": 5
+                "value": 10
               },
               {
                 "color": "red",
-                "value": 15
+                "value": 25
               }
             ]
           },
@@ -149,8 +149,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 16,
+        "w": 6,
+        "x": 12,
         "y": 0
       },
       "id": 3,
@@ -170,154 +170,12 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT round(COALESCE(sum(poor_feedback_count)::numeric / NULLIF(sum(good_feedback_count + poor_feedback_count), 0) * 100.0, 0)::numeric, 2) AS \"Downvote Rate\" FROM analytics_daily_metrics;",
+          "rawSql": "SELECT round(COALESCE(count(CASE WHEN upper(rating) = 'POOR' THEN 1 END)::numeric / NULLIF(count(*), 0) * 100.0, 0)::numeric, 1) AS \"Downvote Rate\" FROM feedback;",
           "refId": "A"
         }
       ],
-      "title": "Global Downvote Defect Rate",
+      "title": "Poor Quality Defect Rate",
       "type": "stat"
-    },
-    {
-      "datasource": "PostgreSQL-Translation-Analytics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Mean Quality Score"
-            },
-            "properties": [
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    { "color": "red", "value": null },
-                    { "color": "yellow", "value": 75 },
-                    { "color": "green", "value": 88 }
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 14,
-        "x": 0,
-        "y": 4
-      },
-      "id": 4,
-      "options": {
-        "footer": {
-          "enablePagination": false,
-          "fields": "",
-          "reducer": ["sum"],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "10.1.0",
-      "targets": [
-        {
-          "format": "table",
-          "rawSql": "SELECT concat(source_language, ' -> ', target_language) AS \"Language Pair\", sum(total_requests) AS \"Total Volume\", round(avg(avg_quality_score)::numeric, 2) AS \"Mean Quality Score\", round(avg(avg_latency_ms)::numeric, 1) AS \"Avg Latency (ms)\" FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY \"Total Volume\" DESC;",
-          "refId": "A"
-        }
-      ],
-      "title": "Translation Volume & Quality Score by Language Pair",
-      "type": "table"
-    },
-    {
-      "datasource": "PostgreSQL-Translation-Analytics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 160
-              },
-              {
-                "color": "red",
-                "value": 300
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 10,
-        "x": 14,
-        "y": 4
-      },
-      "id": 5,
-      "options": {
-        "displayMode": "gradient",
-        "minVizHeight": 10,
-        "minVizWidth": 0,
-        "namePlacement": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [],
-          "fields": "",
-          "values": true
-        },
-        "showUnfilled": true,
-        "valueMode": "color"
-      },
-      "pluginVersion": "10.1.0",
-      "targets": [
-        {
-          "format": "table",
-          "rawSql": "SELECT concat(source_language, ' -> ', target_language) AS \"Pair\", round(avg(avg_latency_ms)::numeric, 0) AS \"Latency\" FROM analytics_daily_metrics GROUP BY source_language, target_language ORDER BY \"Latency\" DESC;",
-          "refId": "A"
-        }
-      ],
-      "title": "Latency by Language Pair (ms)",
-      "type": "bargauge"
     },
     {
       "datasource": "PostgreSQL-Translation-Analytics",
@@ -338,12 +196,212 @@
         "overrides": []
       },
       "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value"]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT provider AS \"Provider\", count(*) AS \"Requests\" FROM translations GROUP BY 1 ORDER BY 2 DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Provider Request Volume",
+      "type": "piechart"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 4
+      },
+      "id": 5,
+      "options": {
+        "footer": {
+          "enablePagination": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT concat(upper(source_language), ' -> ', upper(target_language)) AS \"Language Pair\", count(*) AS \"Requests\", round(avg(translation_time_ms)::numeric, 1) AS \"Avg Latency (ms)\", round(COALESCE(avg(quality_score), 88.0)::numeric, 1) AS \"Quality Score\" FROM translations GROUP BY source_language, target_language ORDER BY \"Requests\" DESC LIMIT 5;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 5 Language Pairs",
+      "type": "table"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3000
+              },
+              {
+                "color": "red",
+                "value": 8000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
       },
       "id": 6,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT concat(upper(source_language), ' -> ', upper(target_language)) AS \"Language Pair\", round(avg(translation_time_ms)::numeric, 0) AS \"Avg Latency ms\" FROM translations GROUP BY source_language, target_language ORDER BY \"Avg Latency ms\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Average Translation Time by Language Pair",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GOOD"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "POOR"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 12
+      },
+      "id": 7,
       "options": {
         "legend": {
           "displayMode": "table",
@@ -366,11 +424,11 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT provider AS \"Provider\", sum(total_requests) AS \"Requests\" FROM analytics_daily_metrics GROUP BY provider ORDER BY \"Requests\" DESC;",
+          "rawSql": "SELECT upper(rating) AS \"Quality Tier\", count(*) AS \"Count\" FROM feedback GROUP BY 1;",
           "refId": "A"
         }
       ],
-      "title": "Provider Volume Distribution",
+      "title": "Quality Evaluation Distribution",
       "type": "piechart"
     },
     {
@@ -390,7 +448,7 @@
               },
               {
                 "color": "red",
-                "value": 100
+                "value": 5
               }
             ]
           }
@@ -399,11 +457,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 12
       },
-      "id": 7,
+      "id": 8,
       "options": {
         "displayMode": "gradient",
         "minVizHeight": 10,
@@ -422,11 +480,447 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT anomaly_type AS \"Defect Type\", count(*) AS \"Occurrences\" FROM analytics_anomalies GROUP BY anomaly_type ORDER BY \"Occurrences\" DESC;",
+          "rawSql": "SELECT COALESCE(reason, 'OTHER') AS \"Defect Reason\", count(*) AS \"Defects\" FROM feedback WHERE upper(rating) = 'POOR' GROUP BY 1 ORDER BY 2 DESC;",
           "refId": "A"
         }
       ],
-      "title": "Flagged Quality Anomalies by Defect Type",
+      "title": "Feedback Defect Reason Distribution",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 12
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value", "percent"]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT style_option AS \"Style\", count(*) AS \"Evaluator Selections\" FROM translation_options WHERE user_selected = TRUE GROUP BY 1 ORDER BY 2 DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Preferred Translation Style",
+      "type": "piechart"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 20
+      },
+      "id": 10,
+      "options": {
+        "footer": {
+          "enablePagination": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT to_char(created_at, 'YYYY-MM-DD') AS \"Date\", count(*) AS \"Daily Volume\", round(avg(translation_time_ms)::numeric, 1) AS \"Avg Latency (ms)\" FROM translations GROUP BY 1 ORDER BY 1 DESC LIMIT 14;",
+          "refId": "A"
+        }
+      ],
+      "title": "Daily Translation Volume",
+      "type": "table"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 20
+      },
+      "id": 11,
+      "options": {
+        "footer": {
+          "enablePagination": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT to_char(f.created_at, 'YYYY-MM-DD') AS \"Date\", count(*) AS \"Defects Flagged\" FROM feedback f WHERE upper(f.rating) = 'POOR' GROUP BY 1 ORDER BY 1 DESC LIMIT 14;",
+          "refId": "A"
+        }
+      ],
+      "title": "Poor-Quality Reports Over Time",
+      "type": "table"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 20
+      },
+      "id": 12,
+      "options": {
+        "footer": {
+          "enablePagination": true,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS \"Timestamp\", concat(upper(source_language), ' -> ', upper(target_language)) AS \"Pair\", translation_time_ms AS \"Latency (ms)\" FROM translations ORDER BY created_at DESC LIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Translation Latency Trend (Recent Requests)",
+      "type": "table"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "green",
+                "value": 0.85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 28
+      },
+      "id": 13,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT concat(upper(t.source_language), ' -> ', upper(t.target_language)) AS \"Language Pair\", round(avg(COALESCE(o.confidence_score, 0.88))::numeric, 2) AS \"Avg Confidence\" FROM translations t JOIN translation_options o ON o.translation_id = t.id GROUP BY 1 ORDER BY 2 DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Average Confidence by Language Pair",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 28
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT count(*) AS \"Total Flagged Anomalies\" FROM translations WHERE anomaly_flag = TRUE;",
+          "refId": "A"
+        }
+      ],
+      "title": "Anomaly Count (Flagged Live)",
+      "type": "stat"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 28
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT count(CASE WHEN status != 'COMPLETED' THEN 1 END) AS \"Provider Errors\" FROM translations;",
+          "refId": "A"
+        }
+      ],
+      "title": "Provider Error Count",
+      "type": "stat"
+    },
+    {
+      "datasource": "PostgreSQL-Translation-Analytics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 16,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT CASE WHEN quality_score >= 88 THEN 'EXCELLENT (88-100)' WHEN quality_score >= 75 THEN 'GOOD (75-87)' WHEN quality_score >= 60 THEN 'NEEDS_REVIEW (60-74)' WHEN quality_score IS NOT NULL THEN 'POOR (0-59)' ELSE 'BASELINE (88.0)' END AS \"Tier\", count(*) AS \"Requests\" FROM translations GROUP BY 1 ORDER BY 2 DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Quality Score Distribution",
       "type": "bargauge"
     },
     {
@@ -458,14 +952,14 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 20
+        "w": 12,
+        "x": 12,
+        "y": 36
       },
-      "id": 8,
+      "id": 17,
       "options": {
         "footer": {
-          "enablePagination": true,
+          "enablePagination": false,
           "fields": "",
           "reducer": ["sum"],
           "show": false
@@ -476,18 +970,18 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT id AS \"ID\", anomaly_type AS \"Category\", round(anomaly_score::numeric, 2) AS \"Severity\", diagnostic_details AS \"Diagnostic Context\", to_char(detected_at, 'YYYY-MM-DD HH24:MI:SS') AS \"Timestamp (UTC)\" FROM analytics_anomalies ORDER BY id DESC LIMIT 50;",
+          "rawSql": "SELECT to_char(metric_date, 'YYYY-MM-DD') AS \"Date\", sum(total_requests) AS \"Total Records\", round(avg(avg_latency_ms)::numeric, 1) AS \"Avg Latency (ms)\", round(avg(avg_quality_score)::numeric, 1) AS \"Quality Score\", sum(poor_feedback_count) AS \"Defects\" FROM analytics_daily_metrics GROUP BY 1 ORDER BY 1 DESC LIMIT 10;",
           "refId": "A"
         }
       ],
-      "title": "Recent Flagged Quality Anomalies (Triage Audit Log)",
+      "title": "Data Quality / ETL Summary",
       "type": "table"
     }
   ],
-  "refresh": "1m",
+  "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["translation", "nlp", "quality-analytics"],
+  "tags": ["translation", "nlp", "quality-analytics", "live-observability"],
   "templating": {
     "list": []
   },
@@ -497,7 +991,7 @@
   },
   "timepicker": {},
   "timezone": "utc",
-  "title": "Translation Quality Analytics & Observability",
+  "title": "Translation Quality Analytics & Continuous Improvement Observability",
   "uid": "translation-analytics-main",
-  "version": 2
+  "version": 3
 }

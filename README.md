@@ -120,22 +120,84 @@ For complete dataset design, see **[docs/DATASET.md](./docs/DATASET.md)**.
 
 ---
 
+---
+
 ## 7. Phased Development Roadmap
 
 | Phase | Description | Status |
 | :--- | :--- | :--- |
 | **Phase 1** | Documentation and Architecture | **COMPLETED** |
 | **Phase 2** | Project Skeleton and Configuration | **COMPLETED** |
-| **Phase 3** | PostgreSQL Database (Schema & connection engine) | PLANNED |
-| **Phase 4** | Translation Abstraction (`TranslationService`, `BaseTranslationProvider`) | PLANNED |
-| **Phase 5** | Hugging Face Provider (Default provider via Inference Providers) | PLANNED |
-| **Phase 6** | Mock Provider (For testing & offline development) | PLANNED |
-| **Phase 7** | Gradio UI (Interactive translation interface) | PLANNED |
-| **Phase 8** | Feedback System (Rating controls & defect taxonomy) | PLANNED |
-| **Phase 9** | OPUS-100 Dataset Ingestion (68k baseline staged) | **COMPLETED** |
-| **Phase 10** | PySpark ETL (Cleaning, features, JDBC egress) | PLANNED |
-| **Phase 11** | Quality Analytics (Quality scoring & anomaly detection) | PLANNED |
-| **Phase 12** | Grafana Dashboards (Provisioning & visualization panels) | PLANNED |
-| **Phase 13** | Testing (Unit, integration, and Spark tests) | PLANNED |
-| **Phase 14** | Dockerization (Full stack verification) | PLANNED |
-| **Phase 15** | Optional Cohere Provider (Non-blocking extension) | PLANNED |
+| **Phase 3** | PostgreSQL Database (Schema, models & connection pooling) | **COMPLETED** |
+| **Phase 4** | Translation Abstraction (`TranslationService`, `BaseTranslationProvider`, DTOs) | **COMPLETED** |
+| **Phase 5** | Hugging Face Provider (Default provider via Inference Providers API) | **COMPLETED** |
+| **Phase 6** | Mock Provider (For deterministic offline testing & CI) | **COMPLETED** |
+| **Phase 7** | Gradio UI (Interactive 3-variant workspace with dark analytics theme) | **COMPLETED** |
+| **Phase 8** | Feedback System (Human-in-the-loop evaluation, defect taxonomy & preference) | **COMPLETED** |
+| **Phase 9** | OPUS-100 Dataset Ingestion (68k baseline records across 6 pairs) | **COMPLETED** |
+| **Phase 10** | PySpark ETL (Cleaning, token features, distributed aggregations) | **COMPLETED** |
+| **Phase 11** | Quality Analytics (0-100 heuristic scoring & rule-based anomaly detection) | **COMPLETED** |
+| **Phase 12** | Grafana Dashboards (14 live PostgreSQL monitoring panels auto-refreshing 5s) | **COMPLETED** |
+| **Phase 13** | Testing (31/31 unit tests passing, 100% success rate) | **COMPLETED** |
+| **Phase 14** | Dockerization (PostgreSQL & Grafana services with automated healthchecks) | **COMPLETED** |
+| **Phase 15** | Continuous Improvement Loop (Automated analytical insights from feedback) | **COMPLETED** |
+
+---
+
+## 8. Quickstart & Verification Guide
+
+### 8.1 Prerequisites
+- Python 3.10+ (tested on Python 3.12)
+- Docker Desktop (for PostgreSQL & Grafana)
+- Hugging Face API Token (free tier with 'Make calls to Inference Providers' permission)
+
+### 8.2 Environment Configuration
+Create a local `.env` file from `.env.example`:
+```bash
+cp .env.example .env
+```
+Ensure your `.env` contains:
+```ini
+TRANSLATION_PROVIDER=huggingface
+HF_MODEL=meta-llama/Llama-3.1-8B-Instruct
+HF_TOKEN=your_huggingface_token_here
+DATABASE_URL=postgresql://postgres:postgres@localhost:5435/translation_analytics
+POSTGRES_PORT=5435
+```
+
+### 8.3 Start Infrastructure Services
+```bash
+docker compose up -d
+```
+Verify running containers:
+- **PostgreSQL**: `localhost:5435`
+- **Grafana**: `http://localhost:3000` (Credentials: `admin` / `admin`)
+
+### 8.4 Run Automated Tests
+```bash
+.venv/Scripts/pytest -v tests/unit
+```
+All 31 unit tests should pass with 100% success rate.
+
+### 8.5 Execute PySpark ETL Pipeline
+```bash
+.venv/Scripts/python.exe pyspark_jobs/etl_job.py
+```
+Outputs the **ETL Data Quality Report** and loads aggregated metrics into PostgreSQL.
+
+### 8.6 Launch Gradio Web Application
+```bash
+.venv/Scripts/python.exe gradio_app/app.py
+```
+Open your browser at `http://127.0.0.1:7860`.
+
+---
+
+## 9. Project Limitations & Ethical Transparency
+
+In accordance with transparent engineering principles:
+1. **Confidence Scores**: Foundation LLMs called via completion APIs do not return calibrated token probability distributions. Unless explicitly supplied by the provider, confidence is recorded as unavailable or baseline heuristic ($0.88$).
+2. **Quality Scoring**: The 0–100 composite quality score is a **project-defined operational heuristic** (combining length ratio distortion, latency penalties, and human defect evaluations) rather than an academic ground-truth MT metric like BLEU or COMET.
+3. **Continuous Improvement Scope**: In this phase, "Continuous Improvement" refers to **feedback-driven analytical insights and prompt optimization**, NOT automated real-time neural network fine-tuning.
+4. **Historical vs. Production Telemetry**: OPUS-100 serves as a historical parallel text corpus for volumetric benchmarking. Application fields (`translation_time_ms`, `feedback_rating`, `request_id`) are generated dynamically during live execution.
+

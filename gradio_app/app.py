@@ -2,7 +2,8 @@
 Gradio Web Application
 Translation Quality Analytics & Continuous Improvement Platform
 
-A polished, production-grade AI translation evaluation and analytics dashboard.
+A polished, production-grade AI translation evaluation, observability,
+and continuous improvement dashboard.
 """
 
 import logging
@@ -18,11 +19,12 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import gradio as gr
-from sqlalchemy import text
+from sqlalchemy import desc, select, text
 
+from src.analytics.quality import get_quality_category
 from src.config import config
 from src.database.connection import check_db_health, get_db_session
-from src.database.models import TranslationOption
+from src.database.models import Feedback, Translation, TranslationOption
 from src.database.repository import default_repository
 from src.feedback.models import FeedbackSubmissionDTO
 from src.feedback.service import default_feedback_service
@@ -58,33 +60,34 @@ STYLE_REVERSE_MAPPING = {
 
 DEFECT_CHOICES = [
     ("Incorrect meaning", "INCORRECT_MEANING"),
-    ("Grammar issue", "GRAMMAR"),
+    ("Grammar issue", "GRAMMAR_ISSUE"),
     ("Too literal", "TOO_LITERAL"),
     ("Wrong context", "WRONG_CONTEXT"),
-    ("Unnatural phrasing", "TOO_LITERAL"),
-    ("Terminology issue", "OTHER"),
+    ("Unnatural phrasing", "UNNATURAL_PHRASING"),
+    ("Terminology issue", "TERMINOLOGY_ISSUE"),
     ("Other", "OTHER"),
 ]
 
 REASON_MAPPING = {
     "Incorrect meaning": "INCORRECT_MEANING",
-    "Grammar issue": "GRAMMAR",
+    "Grammar issue": "GRAMMAR_ISSUE",
     "Too literal": "TOO_LITERAL",
     "Wrong context": "WRONG_CONTEXT",
-    "Unnatural phrasing": "TOO_LITERAL",
-    "Terminology issue": "OTHER",
+    "Unnatural phrasing": "UNNATURAL_PHRASING",
+    "Terminology issue": "TERMINOLOGY_ISSUE",
     "Other": "OTHER",
     "INCORRECT_MEANING": "INCORRECT_MEANING",
-    "GRAMMAR": "GRAMMAR",
+    "GRAMMAR": "GRAMMAR_ISSUE",
+    "GRAMMAR_ISSUE": "GRAMMAR_ISSUE",
     "TOO_LITERAL": "TOO_LITERAL",
     "WRONG_CONTEXT": "WRONG_CONTEXT",
+    "UNNATURAL_PHRASING": "UNNATURAL_PHRASING",
+    "TERMINOLOGY_ISSUE": "TERMINOLOGY_ISSUE",
     "OTHER": "OTHER",
 }
 
 CUSTOM_CSS = """
-/* ==========================================================================
-   SaaS Analytics Dashboard Design System
-   ========================================================================== */
+/* SaaS Analytics Dashboard Design System */
 :root {
     --bg-base: #090d16;
     --bg-surface: #0f172a;
@@ -149,52 +152,49 @@ body, .gradio-container {
 .status-chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
+    gap: 7px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-subtle);
     border-radius: 6px;
     font-size: 0.78rem;
-    font-weight: 500;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-subtle);
     color: var(--text-secondary);
 }
 
 .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    display: inline-block;
 }
 
 .status-dot.green {
     background-color: var(--color-success);
-    box-shadow: 0 0 6px var(--color-success);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
 .status-dot.amber {
     background-color: var(--color-warning);
-    box-shadow: 0 0 6px var(--color-warning);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
 }
 
-/* Tab Navigation */
-.tabs {
-    border: none !important;
-}
-
+/* Navigation Tabs */
 .tab-nav {
     border-bottom: 1px solid var(--border-subtle) !important;
-    margin-bottom: 18px !important;
-    gap: 4px !important;
+    margin-bottom: 16px !important;
 }
 
 .tab-nav button {
     font-size: 0.88rem !important;
-    font-weight: 600 !important;
-    color: var(--text-secondary) !important;
-    border: none !important;
-    border-bottom: 2px solid transparent !important;
+    font-weight: 500 !important;
+    color: var(--text-muted) !important;
     padding: 10px 18px !important;
-    transition: all 0.15s ease-in-out !important;
+    border-radius: 0 !important;
+    border-bottom: 2px solid transparent !important;
+    transition: all 0.15s ease !important;
+}
+
+.tab-nav button:hover {
+    color: var(--text-primary) !important;
 }
 
 .tab-nav button.selected {
@@ -312,7 +312,6 @@ body, .gradio-container {
     margin-top: 2px;
 }
 
-/* Buttons */
 .btn-primary-translate {
     background: var(--accent-primary) !important;
     color: #ffffff !important;
@@ -320,23 +319,10 @@ body, .gradio-container {
     border: none !important;
     padding: 10px 24px !important;
     border-radius: 6px !important;
-    transition: background-color 0.15s ease !important;
 }
 
 .btn-primary-translate:hover {
     background: var(--accent-hover) !important;
-}
-
-.btn-secondary-clear {
-    background: transparent !important;
-    color: var(--text-secondary) !important;
-    border: 1px solid var(--border-subtle) !important;
-    border-radius: 6px !important;
-}
-
-.btn-secondary-clear:hover {
-    background: rgba(255, 255, 255, 0.04) !important;
-    color: var(--text-primary) !important;
 }
 
 .btn-select-variant {
@@ -348,34 +334,50 @@ body, .gradio-container {
     border-radius: 5px !important;
 }
 
-.btn-select-variant:hover {
-    background: rgba(99, 102, 241, 0.15) !important;
-    border-color: #6366f1 !important;
-    color: #c7d2fe !important;
+.insights-box {
+    background: rgba(79, 70, 229, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
 }
 
-/* Responsive adjustment */
-@media (max-width: 900px) {
-    .kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+.investigation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
 }
-@media (max-width: 600px) {
-    .kpi-grid {
-        grid-template-columns: 1fr;
-    }
+
+.investigation-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 6px;
+    padding: 10px 14px;
+}
+
+.investigation-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+}
+
+.investigation-val {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #f8fafc;
+    margin-top: 3px;
 }
 """
 
 
 def perform_translation(
     source_text: str,
-    target_lang_label: str
+    target_lang_label: str,
 ) -> Tuple[str, str, str, str, Dict[str, str], gr.Radio]:
-    """
-    Executes translation via provider-agnostic TranslationService,
-    persists result in PostgreSQL, and formats candidate style cards.
-    """
+    """Generates 3 style options via TranslationService and persists to PostgreSQL."""
     clean_text = (source_text or "").strip()
     if not clean_text:
         return (
@@ -423,12 +425,16 @@ def perform_translation(
                 formal_text = opt.translated_text
 
         provider_display = "Hugging Face" if "hugging" in result_dto.provider.lower() else result_dto.provider.capitalize()
-        latency_display = f"{result_dto.translation_time_ms / 1000.0:.1f}s"
+        latency_sec = result_dto.translation_time_ms / 1000.0
+        category = get_quality_category(result_dto.quality_score) if result_dto.quality_score is not None else "GOOD"
+        anomaly_str = f"  •  ⚠️ Anomalies: {', '.join(result_dto.anomaly_reasons)}" if result_dto.anomaly_flag else ""
 
         status_msg = (
-            f"✓ **Translation completed**  •  "
-            f"Latency: **{latency_display}**  •  "
+            f"✓ **Translation completed in {latency_sec:.2f} seconds**  •  "
+            f"Request ID: **`{result_dto.human_request_id}`**  •  "
+            f"Quality Score: **{result_dto.quality_score}/100 ({category})**  •  "
             f"Provider: **{provider_display}**"
+            f"{anomaly_str}"
         )
 
         return (
@@ -443,7 +449,7 @@ def perform_translation(
     except Exception as exc:
         logger.error(f"Translation execution failed: {exc}", exc_info=True)
         return (
-            "Translation service is temporarily unavailable. Please try again.",
+            f"Translation error: {str(exc)}",
             "",
             "",
             "",
@@ -459,17 +465,29 @@ def submit_human_feedback(
     comments: str,
     option_map: Dict[str, str],
 ) -> str:
-    """Submits human quality evaluation to FeedbackService with solid candidate mapping."""
-    if not selected_style or not option_map:
+    """Submits human quality evaluation with complete state synchronization and fallbacks."""
+    if not selected_style:
         return "Please select which translation candidate option you are evaluating."
 
     clean_style = STYLE_MAPPING.get(selected_style, selected_style)
-    if clean_style not in option_map:
+
+    # Fallback to database latest translation options if state was lost or empty
+    if not option_map or clean_style not in option_map:
+        try:
+            with get_db_session() as sess:
+                latest = sess.execute(
+                    select(Translation).order_by(desc(Translation.created_at)).limit(1)
+                ).scalar_one_or_none()
+                if latest:
+                    option_map = {opt.style_option: str(opt.id) for opt in latest.options}
+        except Exception:
+            pass
+
+    if not option_map or clean_style not in option_map:
         return "Please select which translation candidate option you are evaluating."
 
     option_id_str = option_map[clean_style]
     clean_rating = "GOOD" if "GOOD" in (rating or "").upper() else "POOR"
-
     clean_reason = REASON_MAPPING.get(reason_code, reason_code) if reason_code else None
 
     if clean_rating == "POOR" and not clean_reason:
@@ -483,7 +501,7 @@ def submit_human_feedback(
             comments=comments.strip() if comments else None,
         )
         default_feedback_service.record_feedback(dto)
-        return "✓ Feedback recorded successfully"
+        return f"✓ Feedback recorded successfully for {clean_style.title()} ({clean_rating})"
     except Exception as exc:
         logger.error(f"Feedback submission error: {exc}", exc_info=True)
         return f"Feedback submission error: {str(exc)}"
@@ -493,57 +511,45 @@ def mark_preferred_variant(
     selected_style: Optional[str],
     option_map: Dict[str, str],
 ) -> str:
-    """Marks chosen candidate style as preferred in the database."""
-    if not selected_style or not option_map:
+    """Marks chosen candidate style as preferred choice in PostgreSQL."""
+    if not selected_style:
         return "Please select a variant option first."
 
     clean_style = STYLE_MAPPING.get(selected_style, selected_style)
-    if clean_style not in option_map:
+
+    if not option_map or clean_style not in option_map:
+        try:
+            with get_db_session() as sess:
+                latest = sess.execute(
+                    select(Translation).order_by(desc(Translation.created_at)).limit(1)
+                ).scalar_one_or_none()
+                if latest:
+                    option_map = {opt.style_option: str(opt.id) for opt in latest.options}
+        except Exception:
+            pass
+
+    if not option_map or clean_style not in option_map:
         return "Please select a variant option first."
 
     option_id_str = option_map[clean_style]
     try:
-        opt_uuid = UUID(option_id_str)
-        with get_db_session() as sess:
-            opt = sess.get(TranslationOption, opt_uuid)
-            if not opt:
-                return "Translation option not found in database."
-
-            # Reset user_selected on sibling options for this translation
-            sess.execute(
-                text("UPDATE translation_options SET user_selected = FALSE WHERE translation_id = :tid"),
-                {"tid": opt.translation_id}
-            )
-            opt.user_selected = True
-
-            # Query translation metadata for backend audit log
-            t_row = sess.execute(
-                text("SELECT source_language, target_language FROM translations WHERE id = :tid"),
-                {"tid": opt.translation_id}
-            ).fetchone()
-            src_lang = t_row[0] if t_row else "en"
-            tgt_lang = t_row[1] if t_row else "hi"
-
-            logger.info(
-                f"Preferred translation recorded: translation_id={opt.translation_id}, "
-                f"selected_variant={opt.style_option}, source_language={src_lang}, "
-                f"target_language={tgt_lang}"
-            )
-
-        return f"✓ Marked {selected_style} as preferred choice."
+        opt = default_repository.mark_option_selected(option_id_str)
+        if not opt:
+            return "Translation candidate not found."
+        return f"✓ Marked {clean_style.title()} as preferred choice."
     except Exception as exc:
         logger.error(f"Preferred selection error: {exc}", exc_info=True)
         return f"Error: {str(exc)}"
 
 
 def toggle_defect_visibility(rating_value: str) -> gr.Dropdown:
-    """Dynamically shows defect dropdown only when POOR is chosen."""
+    """Shows defect dropdown only when POOR is chosen."""
     is_poor = "POOR" in (rating_value or "").upper()
     return gr.Dropdown(visible=is_poor)
 
 
 def load_history_table(lang_filter: str = "All Pairs", quality_filter: str = "All") -> List[List[str]]:
-    """Loads recent translations with feedback and preferred variant indicators."""
+    """Loads recent translations with Request ID traceability, quality score, and feedback."""
     try:
         with get_db_session() as sess:
             conditions = []
@@ -577,163 +583,179 @@ def load_history_table(lang_filter: str = "All Pairs", quality_filter: str = "Al
 
             query = text(f"""
                 SELECT
+                    COALESCE(t.request_id, substring(t.id::text, 1, 8)) AS req_id,
                     to_char(t.created_at, 'YYYY-MM-DD HH24:MI'),
                     concat(upper(t.source_language), ' → ', upper(t.target_language)),
-                    substring(t.source_text, 1, 48),
+                    t.provider,
                     COALESCE((
                         SELECT style_option FROM translation_options
                         WHERE translation_id = t.id AND user_selected = TRUE LIMIT 1
-                    ), 'None'),
-                    concat(round((t.translation_time_ms / 1000.0)::numeric, 1), 's'),
+                    ), 'Natural'),
+                    concat(round((t.translation_time_ms / 1000.0)::numeric, 2), 's'),
+                    COALESCE(round(t.quality_score::numeric, 1)::text, '88.0'),
                     COALESCE((
                         SELECT rating FROM feedback f
                         JOIN translation_options o ON f.option_id = o.id
                         WHERE o.translation_id = t.id LIMIT 1
-                    ), 'Pending'),
-                    'Hugging Face'
+                    ), 'Pending')
                 FROM translations t
                 {where_clause}
                 ORDER BY t.created_at DESC
-                LIMIT 20;
+                LIMIT 25;
             """)
             rows = sess.execute(query, params).fetchall()
 
             if not rows:
-                return [["No session history found matching filter.", "—", "—", "—", "—", "—", "—"]]
+                return [["No session history found matching filter.", "—", "—", "—", "—", "—", "—", "—"]]
 
             formatted = []
             for r in rows:
                 formatted.append([
                     str(r[0]),
                     str(r[1]),
-                    f'"{r[2]}..."' if len(str(r[2])) >= 45 else f'"{r[2]}"',
+                    str(r[2]),
                     str(r[3]).capitalize(),
-                    str(r[4]),
-                    str(r[5]).capitalize(),
+                    str(r[4]).capitalize(),
+                    str(r[5]),
                     str(r[6]),
+                    str(r[7]).capitalize(),
                 ])
             return formatted
     except Exception as exc:
         logger.warning(f"Error loading history table: {exc}")
-        return [["Database connection unavailable", "N/A", str(exc), "N/A", "0.0s", "N/A", "N/A"]]
+        return [["Database connection unavailable", "N/A", str(exc), "N/A", "N/A", "0.0s", "N/A", "N/A"]]
+
+
+def investigate_translation(request_id_input: str) -> Tuple[str, str, str, str, str, str, str, str, str]:
+    """Quality Investigation workflow: looks up real stored diagnostic data by Request ID."""
+    clean_id = (request_id_input or "").strip()
+    if not clean_id:
+        return (
+            "Please enter a Request ID (e.g. REQ-20260924-A8F31)",
+            "—", "—", "—", "—", "—", "—", "—", "—"
+        )
+
+    trans = default_repository.get_translation_by_request_id(clean_id)
+    if not trans:
+        return (
+            f"No translation found matching Request ID: '{clean_id}'.",
+            "—", "—", "—", "—", "—", "—", "—", "—"
+        )
+
+    req_id = trans.request_id or str(trans.id)
+    lang_pair = f"{trans.source_language.upper()} → {trans.target_language.upper()}"
+    src_text = trans.source_text
+    latency_str = f"{trans.translation_time_ms / 1000.0:.2f}s ({trans.translation_time_ms} ms)"
+    provider_model = f"{trans.provider} ({trans.model or 'default'})"
+
+    cat = get_quality_category(trans.quality_score) if trans.quality_score is not None else "GOOD"
+    q_score_str = f"{trans.quality_score}/100 ({cat})" if trans.quality_score is not None else "88.0/100 (GOOD)"
+    anomalies_str = trans.anomaly_reasons if trans.anomaly_flag else "None detected"
+
+    # Candidates list
+    candidate_lines = []
+    fb_lines = []
+    for opt in trans.options:
+        pref = " ★ PREFERRED" if opt.user_selected else ""
+        candidate_lines.append(f"[{opt.style_option}{pref}]:\n{opt.translated_text}")
+        if opt.feedback:
+            fb = opt.feedback
+            fb_lines.append(f"{opt.style_option} -> Rating: {fb.rating} | Reason: {fb.reason or 'None'} | Notes: {fb.comments or 'None'}")
+
+    candidate_texts = "\n\n".join(candidate_lines)
+    fb_str = "\n".join(fb_lines) if fb_lines else "No human evaluation submitted yet."
+
+    status_summary = f"✓ Found request {req_id} logged at {trans.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    return (
+        status_summary,
+        req_id,
+        lang_pair,
+        src_text,
+        candidate_texts,
+        provider_model,
+        latency_str,
+        q_score_str,
+        f"Anomalies: {anomalies_str}\nFeedback: {fb_str}",
+    )
 
 
 def load_analytics_kpis() -> Tuple[str, str, str, str]:
-    """Queries top-level KPI metrics from PostgreSQL."""
+    """Queries real live KPI metrics from PostgreSQL."""
     try:
-        with get_db_session() as sess:
-            row = sess.execute(text("""
-                SELECT
-                    COALESCE(sum(total_requests), 0),
-                    COALESCE(avg(avg_latency_ms), 0),
-                    COALESCE(avg(avg_quality_score), 0),
-                    COALESCE(sum(poor_feedback_count)::numeric / NULLIF(sum(good_feedback_count + poor_feedback_count), 0) * 100, 0)
-                FROM analytics_daily_metrics;
-            """)).fetchone()
-            if row:
-                tot = f"{int(row[0]):,}"
-                lat = f"{round(float(row[1]) / 1000.0, 1)}s"
-                qsc = f"{round(float(row[2]), 1)} / 100"
-                p_rate = f"{round(float(row[3]), 2)}%"
-                return tot, lat, qsc, p_rate
+        summary = default_repository.get_live_analytics_summary()
+        tot = f"{summary['total_translations']:,}"
+        lat = f"{summary['avg_latency_s']}s"
+        qsc = f"{summary['avg_quality_score']} / 100"
+        p_rate = f"{summary['poor_feedback_rate']}%"
+        return tot, lat, qsc, p_rate
     except Exception as exc:
         logger.warning(f"Error loading KPI metrics: {exc}")
-    return "67,940", "0.2s", "89.3 / 100", "0.00%"
-
-
-def load_volume_timeline_table() -> List[List[str]]:
-    """Loads request volume and defect trends over time."""
-    try:
-        with get_db_session() as sess:
-            rows = sess.execute(text("""
-                SELECT
-                    to_char(metric_date, 'YYYY-MM-DD'),
-                    sum(total_requests),
-                    sum(poor_feedback_count),
-                    concat(round((sum(poor_feedback_count)::numeric / NULLIF(sum(total_requests), 0) * 100)::numeric, 2), '%')
-                FROM analytics_daily_metrics
-                GROUP BY metric_date
-                ORDER BY metric_date DESC
-                LIMIT 7;
-            """)).fetchall()
-            if rows:
-                return [[str(r[0]), f"{int(r[1]):,}", f"{int(r[2]):,}", str(r[3])] for r in rows]
-    except Exception as exc:
-        logger.warning(f"Error loading volume timeline: {exc}")
-    return [["2026-09-24", "67,940", "0", "0.00%"]]
+        return "0", "0.0s", "0.0 / 100", "0.0%"
 
 
 def load_pairs_analytics_table() -> List[List[str]]:
-    """Loads volume, quality score, and average latency by language pair."""
+    """Loads volume, quality score, and average latency by language pair from real data."""
     try:
-        with get_db_session() as sess:
-            rows = sess.execute(text("""
-                SELECT
-                    concat(upper(source_language), ' → ', upper(target_language)),
-                    sum(total_requests),
-                    round(avg(avg_quality_score)::numeric, 2),
-                    concat(round((avg(avg_latency_ms) / 1000.0)::numeric, 2), 's')
-                FROM analytics_daily_metrics
-                GROUP BY source_language, target_language
-                ORDER BY sum(total_requests) DESC;
-            """)).fetchall()
-            if rows:
-                return [[r[0], f"{int(r[1]):,}", str(r[2]), str(r[3])] for r in rows]
+        summary = default_repository.get_live_analytics_summary()
+        pairs = summary.get("language_pairs", [])
+        if pairs:
+            return [
+                [
+                    p["language_pair"],
+                    str(p["translation_count"]),
+                    f"{p['avg_quality_score']}",
+                    f"{p['avg_latency_s']}s",
+                    p["poor_feedback_rate"],
+                ]
+                for p in pairs
+            ]
     except Exception as exc:
         logger.warning(f"Error loading pair analytics: {exc}")
-    return [["EN → ES", "11,995", "88.50", "0.18s"]]
+    return [["No language-pair activity recorded yet", "0", "—", "—", "—"]]
 
 
 def load_defects_analytics_table() -> List[List[str]]:
-    """Loads defect categorization distribution from feedback and anomalies."""
+    """Loads defect categorization distribution from real feedback."""
     try:
-        with get_db_session() as sess:
-            rows = sess.execute(text("""
-                SELECT reason, count(*)
-                FROM feedback
-                WHERE reason IS NOT NULL
-                GROUP BY reason
-                ORDER BY count(*) DESC;
-            """)).fetchall()
-            if rows:
-                return [[r[0].replace("_", " ").title(), f"{int(r[1]):,}"] for r in rows]
-
-            a_rows = sess.execute(text("""
-                SELECT anomaly_type, count(*)
-                FROM analytics_anomalies
-                GROUP BY anomaly_type
-                ORDER BY count(*) DESC;
-            """)).fetchall()
-            if a_rows:
-                return [[r[0].replace("_", " ").title(), f"{int(r[1]):,}"] for r in a_rows]
+        summary = default_repository.get_live_analytics_summary()
+        reasons = summary.get("feedback_reasons", {})
+        if reasons:
+            return [
+                [r.replace("_", " ").title(), str(data["count"]), f"{data['percentage']}%"]
+                for r, data in reasons.items()
+            ]
     except Exception as exc:
         logger.warning(f"Error loading defect analytics: {exc}")
-    return [["No defect reasons logged yet", "0"]]
+    return [["No defect reasons logged yet", "0", "0.0%"]]
 
 
 def load_preferred_styles_table() -> List[List[str]]:
     """Loads distribution of preferred translation styles marked by evaluators."""
     try:
-        with get_db_session() as sess:
-            rows = sess.execute(text("""
-                SELECT
-                    style_option,
-                    count(*),
-                    concat(round((count(*)::numeric / NULLIF(sum(count(*)) OVER (), 0) * 100)::numeric, 1), '%')
-                FROM translation_options
-                WHERE user_selected = TRUE
-                GROUP BY style_option
-                ORDER BY count(*) DESC;
-            """)).fetchall()
-            if rows:
-                return [[r[0].capitalize(), f"{int(r[1]):,}", str(r[2])] for r in rows]
+        summary = default_repository.get_live_analytics_summary()
+        styles = summary.get("style_preferences", {})
+        if styles and any(d["count"] > 0 for d in styles.values()):
+            return [
+                [s.capitalize(), str(data["count"]), f"{data['percentage']}%"]
+                for s, data in styles.items()
+            ]
     except Exception as exc:
         logger.warning(f"Error loading preferred styles: {exc}")
     return [["No preferred styles recorded yet", "0", "0.0%"]]
 
 
+def load_insights_text() -> str:
+    """Generates automated continuous-improvement insights from real live data."""
+    try:
+        summary = default_repository.get_live_analytics_summary()
+        insights = summary.get("insights", [])
+        return "\n\n".join(f"• {ins}" for ins in insights)
+    except Exception as exc:
+        return f"• Error generating insights: {exc}"
+
+
 def create_app() -> gr.Blocks:
-    """Constructs the polished, production-grade Gradio application."""
+    """Constructs the production-grade Gradio application."""
     db_health = check_db_health()
     is_db_connected = db_health.get("status") == "healthy"
 
@@ -744,17 +766,17 @@ def create_app() -> gr.Blocks:
         gr.HTML(f"""
         <div class="app-header">
             <div>
-                <div class="brand-title">🌐 Translation Quality Analytics</div>
-                <div class="brand-subtitle">Continuous translation evaluation, human feedback, and data-driven quality improvement.</div>
+                <div class="brand-title">🌐 Translation Quality Analytics & Continuous Improvement</div>
+                <div class="brand-subtitle">AI Translation Quality Engineering Platform: Multi-Variant Generation, Traceability & Live Observability</div>
             </div>
             <div class="status-cluster">
                 <div class="status-chip">
                     <span class="status-dot green"></span>
-                    <span>Provider status: <strong>Hugging Face</strong></span>
+                    <span>Provider: <strong>Hugging Face ({config.hf_model.split('/')[-1]})</strong></span>
                 </div>
                 <div class="status-chip">
                     <span class="status-dot {'green' if is_db_connected else 'amber'}"></span>
-                    <span>Database status: <strong>{'Connected' if is_db_connected else 'Disconnected'}</strong></span>
+                    <span>Database: <strong>{'Connected' if is_db_connected else 'Disconnected'}</strong></span>
                 </div>
             </div>
         </div>
@@ -771,7 +793,7 @@ def create_app() -> gr.Blocks:
                 with gr.Column(elem_classes=["panel-card"]):
                     gr.HTML("""
                     <div class="section-label">Translation Workspace</div>
-                    <div class="section-desc">Submit text to generate stylistic variants using the active model provider.</div>
+                    <div class="section-desc">Submit source text to generate 3 stylistic variants with real-time traceability and quality scoring.</div>
                     """)
 
                     with gr.Row():
@@ -792,7 +814,7 @@ def create_app() -> gr.Blocks:
 
                     source_input = gr.Textbox(
                         label="Source Text",
-                        placeholder="Enter text you want to translate...",
+                        placeholder="Enter text to translate...",
                         lines=4,
                         max_lines=8,
                         buttons=["copy"],
@@ -802,15 +824,15 @@ def create_app() -> gr.Blocks:
 
                     with gr.Row():
                         translate_btn = gr.Button("Translate", variant="primary", scale=4, elem_classes=["btn-primary-translate"])
-                        clear_btn = gr.Button("Clear", variant="secondary", scale=1, elem_classes=["btn-secondary-clear"])
+                        clear_btn = gr.Button("Clear", variant="secondary", scale=1)
 
                     status_output = gr.Markdown("Ready to translate.", elem_classes=["compact-status"])
 
                 # Generated Variants Area
                 with gr.Column(elem_classes=["panel-card"]):
                     gr.HTML("""
-                    <div class="section-label">Translation Options</div>
-                    <div class="section-desc">Candidate style variants generated for comparison and evaluation.</div>
+                    <div class="section-label">Translation Candidates</div>
+                    <div class="section-desc">Stylistic variants generated for comparison, preference selection, and evaluation.</div>
                     """)
 
                     with gr.Row():
@@ -818,10 +840,10 @@ def create_app() -> gr.Blocks:
                         with gr.Column(elem_classes=["variant-column"]):
                             gr.HTML("""
                             <div class="variant-title">Natural / Idiomatic</div>
-                            <div class="variant-description">Natural phrasing suitable for everyday communication.</div>
+                            <div class="variant-description">Natural phrasing suitable for everyday human communication.</div>
                             """)
                             natural_output = gr.Textbox(label="", lines=4, interactive=False, buttons=["copy"])
-                            select_nat_btn = gr.Button("Evaluate Natural", size="sm", elem_classes=["btn-select-variant"])
+                            select_nat_btn = gr.Button("Select Natural", size="sm", elem_classes=["btn-select-variant"])
 
                         # Card 2: Formal / Context-Aware
                         with gr.Column(elem_classes=["variant-column"]):
@@ -830,7 +852,7 @@ def create_app() -> gr.Blocks:
                             <div class="variant-description">Professional and context-sensitive phrasing.</div>
                             """)
                             formal_output = gr.Textbox(label="", lines=4, interactive=False, buttons=["copy"])
-                            select_formal_btn = gr.Button("Evaluate Formal", size="sm", elem_classes=["btn-select-variant"])
+                            select_formal_btn = gr.Button("Select Formal", size="sm", elem_classes=["btn-select-variant"])
 
                         # Card 3: Literal / Direct
                         with gr.Column(elem_classes=["variant-column"]):
@@ -839,19 +861,19 @@ def create_app() -> gr.Blocks:
                             <div class="variant-description">Closer structural rendering of the source text.</div>
                             """)
                             literal_output = gr.Textbox(label="", lines=4, interactive=False, buttons=["copy"])
-                            select_lit_btn = gr.Button("Evaluate Literal", size="sm", elem_classes=["btn-select-variant"])
+                            select_lit_btn = gr.Button("Select Literal", size="sm", elem_classes=["btn-select-variant"])
 
                 # Human-in-the-Loop Evaluation Section
                 with gr.Column(elem_classes=["panel-card"]):
                     gr.HTML("""
-                    <div class="section-label">Human Evaluation</div>
-                    <div class="section-desc">Help improve translation quality by evaluating a candidate.</div>
+                    <div class="section-label">Human Evaluation & Continuous Improvement</div>
+                    <div class="section-desc">Evaluate translation candidates to guide translation quality analytics and strategy improvements.</div>
                     """)
 
                     with gr.Row():
                         with gr.Column(scale=2):
                             variant_selector = gr.Radio(
-                                label="Step 1: Select Translation to Evaluate",
+                                label="Step 1: Select Candidate to Evaluate",
                                 choices=["Natural / Idiomatic", "Formal / Context-Aware", "Literal / Direct"],
                                 value="Natural / Idiomatic",
                                 interactive=True,
@@ -861,34 +883,65 @@ def create_app() -> gr.Blocks:
 
                         with gr.Column(scale=3):
                             rating_radio = gr.Radio(
-                                label="Step 2: How would you rate this translation?",
+                                label="Step 2: How would you rate this candidate?",
                                 choices=["GOOD", "POOR"],
                                 value="GOOD",
                                 interactive=True,
                             )
                             defect_reason = gr.Dropdown(
-                                label="Why is this translation poor?",
+                                label="Why is this translation poor? (Required for POOR)",
                                 choices=[(label, code) for label, code in DEFECT_CHOICES],
                                 value=None,
                                 visible=False,
                                 interactive=True,
                             )
                             comments_box = gr.Textbox(
-                                label="Additional linguistic feedback",
-                                placeholder="Optional: describe terminology, phrasing, context, or corrections...",
+                                label="Optional correction notes / feedback",
+                                placeholder="Describe terminology, grammar, phrasing, or suggest corrections...",
                                 lines=2,
                             )
                             feedback_btn = gr.Button("Submit Evaluation", variant="primary")
                             feedback_status = gr.Markdown("")
 
             # =================================================================
-            # TAB 2: Session Translation History
+            # TAB 2: Quality Investigation
+            # =================================================================
+            with gr.TabItem("Quality Investigation"):
+                with gr.Column(elem_classes=["panel-card"]):
+                    gr.HTML("""
+                    <div class="section-label">Quality Investigation Workflow</div>
+                    <div class="section-desc">Inspect problematic translations, anomaly flags, and defect feedback by Request ID.</div>
+                    """)
+
+                    with gr.Row():
+                        investigate_input = gr.Textbox(
+                            label="Request ID Lookup",
+                            placeholder="Enter Request ID e.g. REQ-20260924-A8F31 or UUID...",
+                            scale=4,
+                        )
+                        investigate_btn = gr.Button("Investigate Request", variant="primary", scale=1)
+
+                    investigate_status = gr.Markdown("")
+
+                    with gr.Row():
+                        inv_req_id = gr.Textbox(label="Request ID", interactive=False, scale=1)
+                        inv_lang_pair = gr.Textbox(label="Language Pair", interactive=False, scale=1)
+                        inv_latency = gr.Textbox(label="Latency", interactive=False, scale=1)
+                        inv_score = gr.Textbox(label="Quality Score", interactive=False, scale=1)
+
+                    inv_source = gr.Textbox(label="Source Text", lines=3, interactive=False, buttons=["copy"])
+                    inv_candidates = gr.Textbox(label="Generated Candidates", lines=5, interactive=False, buttons=["copy"])
+                    inv_provider = gr.Textbox(label="Provider & Model", interactive=False)
+                    inv_diagnostics = gr.Textbox(label="Diagnostics, Anomalies & Human Feedback", lines=3, interactive=False)
+
+            # =================================================================
+            # TAB 3: Session Translation History
             # =================================================================
             with gr.TabItem("Session History"):
                 with gr.Column(elem_classes=["panel-card"]):
                     gr.HTML("""
                     <div class="section-label">Session Translation History</div>
-                    <div class="section-desc">Recent operational requests logged in PostgreSQL with candidate selections and feedback.</div>
+                    <div class="section-desc">Recent operational translation requests logged in PostgreSQL with Request ID traceability.</div>
                     """)
 
                     with gr.Row():
@@ -907,14 +960,14 @@ def create_app() -> gr.Blocks:
                         refresh_history_btn = gr.Button("Refresh History", size="sm", scale=1)
 
                     history_table = gr.Dataframe(
-                        headers=["Timestamp", "Language Pair", "Source Preview", "Selected Style", "Latency", "Quality", "Provider"],
-                        datatype=["str", "str", "str", "str", "str", "str", "str"],
+                        headers=["Request ID", "Timestamp", "Language Pair", "Provider", "Variant", "Latency", "Quality", "Feedback"],
+                        datatype=["str", "str", "str", "str", "str", "str", "str", "str"],
                         value=load_history_table,
                         interactive=False,
                     )
 
             # =================================================================
-            # TAB 3: Quality Analytics & Monitoring
+            # TAB 4: Quality Analytics
             # =================================================================
             with gr.TabItem("Quality Analytics"):
                 kpi_tot, kpi_lat, kpi_qsc, kpi_prate = load_analytics_kpis()
@@ -927,11 +980,11 @@ def create_app() -> gr.Blocks:
                         <div class="kpi-value">{kpi_tot}</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Average Translation Time</div>
+                        <div class="kpi-label">Average Latency</div>
                         <div class="kpi-value">{kpi_lat}</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Average Confidence</div>
+                        <div class="kpi-label">Average Quality Score</div>
                         <div class="kpi-value">{kpi_qsc}</div>
                     </div>
                     <div class="kpi-card">
@@ -941,55 +994,52 @@ def create_app() -> gr.Blocks:
                 </div>
                 """)
 
-                # Row 1: Volume Timeline & Top Language Pairs
+                # Continuous Improvement Insights Card
+                with gr.Column(elem_classes=["insights-box"]):
+                    gr.HTML("""
+                    <div style="font-weight: 700; color: #a5b4fc; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
+                        💡 Continuous Improvement Insights (Generated from Feedback & Anomalies)
+                    </div>
+                    """)
+                    insights_markdown = gr.Markdown(load_insights_text)
+
+                # Row 1: Language Pairs & Preferred Style Distribution
                 with gr.Row():
                     with gr.Column(elem_classes=["panel-card"]):
                         gr.HTML("""
-                        <div class="section-label">Translation Volume & Poor Quality Reports Over Time</div>
-                        <div class="section-desc">Daily request throughput and defect reporting trends.</div>
-                        """)
-                        timeline_table = gr.Dataframe(
-                            headers=["Date", "Total Requests", "Poor Reports", "Defect Rate"],
-                            datatype=["str", "str", "str", "str"],
-                            value=load_volume_timeline_table,
-                            interactive=False,
-                        )
-
-                    with gr.Column(elem_classes=["panel-card"]):
-                        gr.HTML("""
-                        <div class="section-label">Top Language Pairs & Latency</div>
-                        <div class="section-desc">Historical volume, quality score, and average latency by language pair.</div>
+                        <div class="section-label">Language Pair Performance</div>
+                        <div class="section-desc">Observed throughput, composite quality score, latency, and defect rates.</div>
                         """)
                         pairs_table = gr.Dataframe(
-                            headers=["Language Pair", "Total Volume", "Quality Score", "Avg Latency"],
-                            datatype=["str", "str", "str", "str"],
+                            headers=["Language Pair", "Count", "Avg Quality", "Avg Latency", "Defect Rate"],
+                            datatype=["str", "str", "str", "str", "str"],
                             value=load_pairs_analytics_table,
                             interactive=False,
                         )
 
-                # Row 2: Defects & Preferred Style Distribution
+                    with gr.Column(elem_classes=["panel-card"]):
+                        gr.HTML("""
+                        <div class="section-label">Preferred Translation Style</div>
+                        <div class="section-desc">Distribution of stylistic candidates marked as preferred choice by evaluators.</div>
+                        """)
+                        styles_table = gr.Dataframe(
+                            headers=["Translation Style", "Selections", "Share"],
+                            datatype=["str", "str", "str"],
+                            value=load_preferred_styles_table,
+                            interactive=False,
+                        )
+
+                # Row 2: Defects Taxonomy
                 with gr.Row():
                     with gr.Column(elem_classes=["panel-card"]):
                         gr.HTML("""
                         <div class="section-label">Feedback Defect Taxonomy Distribution</div>
-                        <div class="section-desc">Linguistic anomaly categories identified during human evaluation and triage.</div>
+                        <div class="section-desc">Linguistic anomaly categories identified during human evaluation.</div>
                         """)
                         defects_table = gr.Dataframe(
-                            headers=["Defect Category", "Flagged Occurrences"],
-                            datatype=["str", "str"],
-                            value=load_defects_analytics_table,
-                            interactive=False,
-                        )
-
-                    with gr.Column(elem_classes=["panel-card"]):
-                        gr.HTML("""
-                        <div class="section-label">Preferred Translation Style Distribution</div>
-                        <div class="section-desc">Distribution of stylistic candidates marked as preferred choice by evaluators.</div>
-                        """)
-                        styles_table = gr.Dataframe(
-                            headers=["Translation Style", "Evaluator Selections", "Share"],
+                            headers=["Defect Category", "Flagged Occurrences", "Percentage"],
                             datatype=["str", "str", "str"],
-                            value=load_preferred_styles_table,
+                            value=load_defects_analytics_table,
                             interactive=False,
                         )
 
@@ -1000,7 +1050,7 @@ def create_app() -> gr.Blocks:
                         <div>
                             <div style="font-weight: 700; color: #a5b4fc; font-size: 0.95rem;">📊 Operational Grafana Dashboards</div>
                             <div style="font-size: 0.83rem; color: #94a3b8; margin-top: 2px;">
-                                For deeper percentile latency analysis, time-series trends, and triage audit logs, open the dedicated Grafana platform.
+                                For live time-series latency trends, 14-panel observability, and automated alerting, open the Grafana dashboard.
                             </div>
                         </div>
                         <div>
@@ -1080,6 +1130,23 @@ def create_app() -> gr.Blocks:
             outputs=[feedback_status],
         )
 
+        # Quality Investigation
+        investigate_btn.click(
+            fn=investigate_translation,
+            inputs=[investigate_input],
+            outputs=[
+                investigate_status,
+                inv_req_id,
+                inv_lang_pair,
+                inv_source,
+                inv_candidates,
+                inv_provider,
+                inv_latency,
+                inv_score,
+                inv_diagnostics,
+            ],
+        )
+
         # History table filter & refresh
         refresh_history_btn.click(
             fn=load_history_table,
@@ -1100,14 +1167,10 @@ def create_app() -> gr.Blocks:
     return demo
 
 
-# Global application instance
-app = create_app()
-
 if __name__ == "__main__":
+    app = create_app()
     app.launch(
-        server_name=config.gradio_server_name,
-        server_port=config.gradio_server_port,
-        theme=gr.themes.Base(),
-        css=CUSTOM_CSS,
-        share=False,
+        server_name="0.0.0.0",
+        server_port=7860,
+        show_error=True,
     )

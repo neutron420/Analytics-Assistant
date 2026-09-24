@@ -1,0 +1,123 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: TranslationPlatformAlerts
+    folder: PlatformMonitoring
+    interval: 1m
+    rules:
+      - uid: alert-high-latency
+        title: High Translation Latency
+        condition: B
+        data:
+          - refId: A
+            queryType: ""
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PostgreSQL-Translation-Analytics
+            model:
+              rawSql: "SELECT round(COALESCE(avg(translation_time_ms), 0)::numeric, 1) FROM translations WHERE created_at >= NOW() - INTERVAL '5 minutes';"
+              format: table
+          - refId: B
+            type: threshold
+            expression: A
+            settings:
+              mode: gt
+              thresholds: [8000]
+        noDataState: OK
+        execErrState: OK
+        for: 2m
+        annotations:
+          summary: "Translation round-trip latency exceeded 8000ms SLA threshold"
+          description: "Average latency over the last 5 minutes is above acceptable bounds."
+        labels:
+          severity: warning
+          component: translation-service
+
+      - uid: alert-poor-quality-rate
+        title: High Poor-Quality Rate
+        condition: B
+        data:
+          - refId: A
+            queryType: ""
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PostgreSQL-Translation-Analytics
+            model:
+              rawSql: "SELECT round(COALESCE(count(CASE WHEN upper(rating) = 'POOR' THEN 1 END)::numeric / NULLIF(count(*), 0) * 100.0, 0)::numeric, 1) FROM feedback WHERE created_at >= NOW() - INTERVAL '15 minutes';"
+              format: table
+          - refId: B
+            type: threshold
+            expression: A
+            settings:
+              mode: gt
+              thresholds: [25]
+        noDataState: OK
+        execErrState: OK
+        for: 3m
+        annotations:
+          summary: "Human evaluator downvote defect rate exceeded 25%"
+          description: "More than 25% of recent evaluated candidates were marked as POOR."
+        labels:
+          severity: critical
+          component: human-feedback
+
+      - uid: alert-provider-errors
+        title: High Provider Error Rate
+        condition: B
+        data:
+          - refId: A
+            queryType: ""
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PostgreSQL-Translation-Analytics
+            model:
+              rawSql: "SELECT count(*) FROM translations WHERE status != 'COMPLETED' AND created_at >= NOW() - INTERVAL '5 minutes';"
+              format: table
+          - refId: B
+            type: threshold
+            expression: A
+            settings:
+              mode: gt
+              thresholds: [3]
+        noDataState: OK
+        execErrState: OK
+        for: 1m
+        annotations:
+          summary: "Translation provider failures detected"
+          description: "Multiple translation attempts failed within 5 minutes."
+        labels:
+          severity: critical
+          component: provider-pipeline
+
+      - uid: alert-quality-degradation
+        title: Quality Score Degradation
+        condition: B
+        data:
+          - refId: A
+            queryType: ""
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PostgreSQL-Translation-Analytics
+            model:
+              rawSql: "SELECT round(COALESCE(avg(quality_score), 88.0)::numeric, 1) FROM translations WHERE created_at >= NOW() - INTERVAL '15 minutes';"
+              format: table
+          - refId: B
+            type: threshold
+            expression: A
+            settings:
+              mode: lt
+              thresholds: [65]
+        noDataState: OK
+        execErrState: OK
+        for: 3m
+        annotations:
+          summary: "System translation quality score dropped below 65.0"
+          description: "Composite quality score indicates operational quality degradation."
+        labels:
+          severity: warning
+          component: quality-analytics

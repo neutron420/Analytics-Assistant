@@ -35,11 +35,16 @@ class Translation(Base):
     __tablename__ = "translations"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    request_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
     provider: Mapped[str] = mapped_column(String(30), nullable=False, default="huggingface")
+    model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     source_text: Mapped[str] = mapped_column(Text, nullable=False)
     source_language: Mapped[str] = mapped_column(String(10), nullable=False)
     target_language: Mapped[str] = mapped_column(String(10), nullable=False)
     translation_time_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    anomaly_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    anomaly_reasons: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="COMPLETED")
     client_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -56,9 +61,11 @@ class Translation(Base):
     )
 
     __table_args__ = (
+        Index("idx_translations_request_id", "request_id"),
         Index("idx_translations_created_at", "created_at"),
         Index("idx_translations_pair", "source_language", "target_language"),
         Index("idx_translations_provider", "provider"),
+        Index("idx_translations_model", "model"),
     )
 
 
@@ -74,6 +81,7 @@ class TranslationOption(Base):
     style_option: Mapped[str] = mapped_column(String(30), nullable=False)  # LITERAL, NATURAL, FORMAL
     translated_text: Mapped[str] = mapped_column(Text, nullable=False)
     confidence_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    text_length: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     user_selected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -109,7 +117,7 @@ class Feedback(Base):
         nullable=False
     )
     rating: Mapped[str] = mapped_column(String(10), nullable=False)  # GOOD, POOR
-    reason: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    reason: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     comments: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
