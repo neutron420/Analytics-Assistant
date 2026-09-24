@@ -1,0 +1,41 @@
+flowchart TD
+    subgraph UI_Capture ["1. User Feedback Capture"]
+        UserReview[User Evaluates Translation in Gradio]
+        RatingChoice[Selects 'POOR' + Chooses Defect Code e.g. TOO_LITERAL]
+        Submit[Click 'SUBMIT QUALITY FEEDBACK']
+        
+        UserReview --> RatingChoice --> Submit
+    end
+
+    subgraph RelationalPersistence ["2. Persistence Layer"]
+        FeedbackTbl[(PostgreSQL: feedback table)]
+        Submit -->|Insert feedback record| FeedbackTbl
+    end
+
+    subgraph BatchAnalytics ["3. Big Data Processing (PySpark)"]
+        SparkETL[PySpark Batch Aggregation & Quality Engine]
+        MetricMart[(analytics_daily_metrics)]
+        AnomalyMart[(analytics_anomalies)]
+        
+        FeedbackTbl --> SparkETL
+        SparkETL -->|Update poor_feedback_rate| MetricMart
+        SparkETL -->|Flag low-quality translations| AnomalyMart
+    end
+
+    subgraph ObservabilityLayer ["4. Operational Triage (Grafana)"]
+        GrafanaDash[Grafana Dashboard Panel: Downvote Rate by Pair]
+        TriageTable[Anomaly Inspection Table: Defect Taxonomy Breakdown]
+        
+        MetricMart --> GrafanaDash
+        AnomalyMart --> TriageTable
+    end
+
+    subgraph EngineeringLoop ["5. Continuous Improvement Action"]
+        Audit[Linguistic & Prompt Engineering Audit]
+        PromptUpdate[Update Prompt Guidelines & Few-Shot Idioms in prompts.py]
+        VerifiedRecovery[Re-run Evaluation & Confirm Downvote Reduction]
+        
+        GrafanaDash & TriageTable --> Audit
+        Audit --> PromptUpdate
+        PromptUpdate --> VerifiedRecovery
+    end

@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Browser)
+    participant UI as Gradio UI (:7860)
+    participant Service as TranslationService
+    participant Provider as Active Translation Provider\n(Hugging Face Default / Mock / Cohere)
+    participant DB as PostgreSQL (:5432)
+
+    User->>UI: Enter text, choose "English" to "Hindi"
+    User->>UI: Click "TRANSLATE NOW"
+    
+    UI->>Service: translate(text, "en", "hi")
+    activate Service
+    
+    Service->>Service: Start monotonic timer
+    Service->>Provider: generate_translations(prompt, styles)
+    activate Provider
+    
+    alt Successful Inference
+        Provider-->>Service: Return Literal, Natural, Formal styles + confidence
+    else Provider Rate Limited (HTTP 429)
+        Provider-->>Service: HTTP 429 Rate Limit
+        Service->>Service: Exponential backoff & retry (up to 3x)
+        Service->>Provider: Retry request
+        Provider-->>Service: Return styles
+    end
+    deactivate Provider
+    
+    Service->>Service: Stop timer, compute translation_time_ms
+    
+    Service->>DB: INSERT into translations (id, provider, text, latency, etc.)
+    Service->>DB: INSERT into translation_options (candidate styles)
+    
+    Service-->>UI: Return TranslationResultDTO
+    deactivate Service
+    
+    UI-->>User: Render Literal, Natural, and Formal options
+    
+    opt User Selects Option
+        User->>UI: Click preferred option (e.g. "Natural")
+        UI->>DB: UPDATE translation_options SET user_selected = TRUE
+    end

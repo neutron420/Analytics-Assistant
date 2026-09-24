@@ -1,0 +1,46 @@
+flowchart TD
+    subgraph DataSources ["Input Sources"]
+        SRC_PARQUET[(Staged Parquet Baseline 50k-100k rows)]
+        SRC_JDBC[(PostgreSQL: translations + options + feedback)]
+    end
+
+    subgraph Step1 ["Stage 1: Unified Ingestion"]
+        INGEST[Spark Read Parquet & Spark JDBC Read]
+        UNION[Union DataFrames & Standardize Types]
+        SRC_PARQUET --> INGEST
+        SRC_JDBC --> INGEST
+        INGEST --> UNION
+    end
+
+    subgraph Step2 ["Stage 2: Cleansing & Normalization"]
+        NULL_CHK[Filter Null Source / Target Strings]
+        TRIM_CHK[Trim Whitespace & Drop 0-Length Text]
+        DEDUP[Deduplicate by (source_lang, target_lang, md5(source_text))]
+        UNION --> NULL_CHK --> TRIM_CHK --> DEDUP
+    end
+
+    subgraph Step3 ["Stage 3: Feature Engineering"]
+        LENS[Compute source_char_len & target_char_len]
+        WORDS[Compute source_word_count & target_word_count]
+        RATIO[Calculate length_ratio = target_len / source_len]
+        LAT_BIN[Bin Latency: FAST <1s, NORMAL 1-3s, SLOW >3s]
+        DEDUP --> LENS --> WORDS --> RATIO --> LAT_BIN
+    end
+
+    subgraph Step4 ["Stage 4: Quality & Anomaly Engine"]
+        QSCORE[Compute Composite Quality Score Q 0-100]
+        QCATEGORY[Assign EXCELLENT, GOOD, NEEDS_REVIEW, POOR]
+        ANOMALY[Flag Truncation, Hallucination, Latency Spikes]
+        LAT_BIN --> QSCORE --> QCATEGORY --> ANOMALY
+    end
+
+    subgraph Step5 ["Stage 5: Aggregation & Egress"]
+        AGG[Group by: metric_date, source_lang, target_lang, style]
+        METRICS[Compute total_requests, avg_latency, p95_latency, downvote_rate]
+        TARGET_METRICS[(analytics_daily_metrics)]
+        TARGET_ANOMALIES[(analytics_anomalies)]
+        
+        ANOMALY --> AGG --> METRICS
+        METRICS -->|JDBC Upsert| TARGET_METRICS
+        ANOMALY -->|Filter Flagged Outliers| TARGET_ANOMALIES
+    end

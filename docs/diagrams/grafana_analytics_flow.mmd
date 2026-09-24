@@ -1,0 +1,42 @@
+flowchart LR
+    subgraph Storage ["PostgreSQL Analytics Marts"]
+        TBL_DAILY[(analytics_daily_metrics)]
+        TBL_ANOM[(analytics_anomalies)]
+        TBL_FEEDBACK[(feedback)]
+    end
+
+    subgraph Datasource ["Grafana PostgreSQL Plugin"]
+        PG_CONN[PostgreSQL Native Connection]
+        QUERY_RUNNER[Async SQL Query Engine]
+        
+        TBL_DAILY --> PG_CONN
+        TBL_ANOM --> PG_CONN
+        TBL_FEEDBACK --> PG_CONN
+        PG_CONN --> QUERY_RUNNER
+    end
+
+    subgraph VisualPanels ["Dashboard Visualizations"]
+        P1[Panel 1: Total Volume & Daily Trend]
+        P2[Panel 2: Language Pair Volume & Mix]
+        P3[Panel 3: Mean & P95 Latency Heatmap]
+        P4[Panel 4: Poor Feedback Rate %]
+        P5[Panel 5: Quality Tier Distribution]
+        P6[Panel 6: Defect Taxonomy Breakdown]
+        P7[Panel 7: Live Anomaly Triage Table]
+        
+        QUERY_RUNNER --> P1
+        QUERY_RUNNER --> P2
+        QUERY_RUNNER --> P3
+        QUERY_RUNNER --> P4
+        QUERY_RUNNER --> P5
+        QUERY_RUNNER --> P6
+        QUERY_RUNNER --> P7
+    end
+
+    subgraph Alerts ["Operational Alerts"]
+        A1[Alert: Downvote Rate > 15%]
+        A2[Alert: P95 Latency > 4500ms]
+        
+        P4 --> A1
+        P3 --> A2
+    end

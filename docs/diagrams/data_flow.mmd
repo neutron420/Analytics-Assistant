@@ -1,0 +1,42 @@
+flowchart LR
+    subgraph RawData ["1. Ingestion Tier"]
+        OPUS[Raw OPUS-100 Parallel Corpus\n68,000 Ingested Pairs]
+        LIVE_REQ[Live User Input Text]
+    end
+
+    subgraph StagingTier ["2. Staging & Persistence Tier"]
+        ENRICH[Enrichment Engine: Add Latency, Style, Feedback]
+        PARQUET[(Enriched Baseline Parquet)]
+        PG_DB[(PostgreSQL Operational Tables\nWith Provider Column)]
+        
+        OPUS --> ENRICH --> PARQUET
+        LIVE_REQ --> PG_DB
+    end
+
+    subgraph SparkTier ["3. PySpark Distributed Processing"]
+        SPARK_IN[Unified Spark Ingestion]
+        CLEAN[Filter Nulls, Whitespace & Deduplicate]
+        FEATURES[Compute char_len, word_cnt, length_ratio]
+        QUALITY[Calculate Quality Score Q & Anomaly Flags]
+        AGG[Aggregate by Date, Pair, Style & Provider]
+        
+        PARQUET --> SPARK_IN
+        PG_DB --> SPARK_IN
+        SPARK_IN --> CLEAN --> FEATURES --> QUALITY --> AGG
+    end
+
+    subgraph MartTier ["4. Analytical Data Mart"]
+        METRICS_TBL[(analytics_daily_metrics)]
+        ANOMALIES_TBL[(analytics_anomalies)]
+        
+        AGG -->|JDBC Write| METRICS_TBL
+        QUALITY -->|Filter Outliers| ANOMALIES_TBL
+    end
+
+    subgraph VisualTier ["5. Operational Observability"]
+        GRAFANA_DASH[Grafana Operational Dashboards]
+        TRIAGE[Quality Anomaly Triage]
+        
+        METRICS_TBL --> GRAFANA_DASH
+        ANOMALIES_TBL --> TRIAGE
+    end

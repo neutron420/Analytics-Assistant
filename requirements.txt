@@ -1,0 +1,32 @@
+# ==============================================================================
+# REQUIREMENTS SPECIFICATION
+# Translation Quality Analytics & Improvement Platform
+# ==============================================================================
+
+# User Interface
+gradio>=4.38.0
+
+# LLM Translation Engine
+cohere>=5.5.0
+
+# Big Data Distributed Processing
+pyspark>=3.4.0
+
+# Relational Persistence & ORM
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+
+# Data Models, Validation & Configuration
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.1
+
+# Dataset Handling & Tabular Formats
+datasets>=2.18.0
+pyarrow>=14.0.0
+pandas>=2.0.0
+requests>=2.31.0
+
+# Quality Assurance & Testing
+pytest>=8.2.0
+pytest-mock>=3.14.0

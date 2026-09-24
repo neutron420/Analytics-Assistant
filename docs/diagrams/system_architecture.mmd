@@ -1,0 +1,83 @@
+flowchart TD
+    subgraph UI_Layer ["Presentation Layer"]
+        User([End User])
+        GradioApp[Gradio Web Application :7860]
+        User <-->|Submit text, choose style, rate quality| GradioApp
+    end
+
+    subgraph Service_Layer ["Application & Service Layer"]
+        TransService[TranslationService Facade]
+        
+        subgraph Providers ["Pluggable Translation Providers"]
+            HFProvider[Hugging Face Inference Providers\nDEFAULT]
+            CohereProvider[Cohere Provider\nOPTIONAL / FUTURE]
+            MockProvider[Mock Provider\nTESTING / OFFLINE]
+        end
+        
+        FeedbackService[Feedback Ingestion Service]
+        
+        GradioApp -->|Dispatch Translation| TransService
+        TransService -->|Configured Provider| HFProvider
+        TransService -.->|Optional Alternative| CohereProvider
+        TransService -.->|Local Testing| MockProvider
+        
+        HFProvider -->|Return Candidate Styles| TransService
+        CohereProvider -.->|Return Candidate Styles| TransService
+        MockProvider -.->|Return Candidate Styles| TransService
+        
+        TransService -->|Render Candidates| GradioApp
+        GradioApp -->|Submit Rating & Defect Code| FeedbackService
+    end
+
+    subgraph Persistence_Layer ["Relational Storage (PostgreSQL :5432)"]
+        PG[(PostgreSQL DB)]
+        T_Req[translations table\nprovider, latency, text]
+        T_Opt[translation_options table\ncandidate styles, selection]
+        T_Fb[feedback table\nrating, defect reason]
+        T_Metrics[analytics_daily_metrics table\naggregated metrics]
+        T_Anom[analytics_anomalies table\nflagged low-quality rows]
+
+        TransService -->|Store request, provider & latency| T_Req
+        TransService -->|Store generated styles| T_Opt
+        FeedbackService -->|Store user rating & reason| T_Fb
+    end
+
+    subgraph Staging_Layer ["Historical Baseline Data Pipeline"]
+        Opus100[(OPUS-100 Open Corpus\n68,000 Ingested Pairs)]
+        StagingScript[Staging & Telemetry Enrichment Engine]
+        ParquetData[(Staged Parquet Baseline)]
+        
+        Opus100 -->|Filter 6 Language Pairs| StagingScript
+        StagingScript -->|Enrich with synthetic telemetry| ParquetData
+    end
+
+    subgraph BigData_Layer ["PySpark Distributed Analytics Engine"]
+        SparkJob[PySpark Batch ETL & Quality Job]
+        Clean[Data Cleansing & Deduplication]
+        Features[Feature Engineering: Lengths, Ratios, Word Counts]
+        QualityModel[Deterministic Quality Heuristic Scoring]
+        Aggregator[Dimensional Aggregations: Date, Pair, Provider]
+
+        ParquetData --> SparkJob
+        T_Req -.->|JDBC Read| SparkJob
+        T_Fb -.->|JDBC Read| SparkJob
+        
+        SparkJob --> Clean --> Features --> QualityModel --> Aggregator
+        Aggregator -->|JDBC Upsert| T_Metrics
+        QualityModel -->|Flagged Anomalies| T_Anom
+    end
+
+    subgraph Observability_Layer ["Observability & Monitoring"]
+        Grafana[Grafana Dashboard :3000]
+        Panels[Core Panels: Volume, Latency, Downvote %, Quality Distribution\nSecondary: Provider Volume & Latency Mix]
+        
+        T_Metrics -->|Direct SQL Queries| Grafana
+        T_Anom -->|Direct SQL Queries| Grafana
+        Grafana --> Panels
+    end
+
+    subgraph Feedback_Loop ["Continuous Improvement Loop"]
+        Insights[Identified Quality Bottlenecks]
+        Grafana -.->|High downvote / idiom failures| Insights
+        Insights -.->|Refine prompt templates & system instructions| TransService
+    end

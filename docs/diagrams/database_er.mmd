@@ -1,0 +1,62 @@
+erDiagram
+    TRANSLATIONS ||--|{ TRANSLATION_OPTIONS : "generates"
+    TRANSLATION_OPTIONS ||--o| FEEDBACK : "receives"
+    TRANSLATIONS ||--o{ ANALYTICS_ANOMALIES : "flags"
+
+    TRANSLATIONS {
+        uuid id PK "Primary Key"
+        varchar provider "huggingface, cohere, mock"
+        text source_text "Source Text Input"
+        varchar source_language "ISO-639-1 code e.g. en"
+        varchar target_language "ISO-639-1 code e.g. hi, fr"
+        integer translation_time_ms "Roundtrip latency in ms"
+        varchar status "COMPLETED, FAILED, TIMEOUT"
+        varchar client_ip "Masked caller IP"
+        timestamp created_at "Request timestamp"
+    }
+
+    TRANSLATION_OPTIONS {
+        uuid id PK "Primary Key"
+        uuid translation_id FK "References TRANSLATIONS(id)"
+        varchar style_option "LITERAL, NATURAL, FORMAL"
+        text translated_text "Generated Translation"
+        float confidence_score "Model output or normalized confidence"
+        boolean user_selected "True if picked by user"
+        timestamp created_at "Generation timestamp"
+    }
+
+    FEEDBACK {
+        uuid id PK "Primary Key"
+        uuid option_id FK "References TRANSLATION_OPTIONS(id)"
+        varchar rating "GOOD or POOR"
+        varchar reason "INCORRECT_MEANING, GRAMMAR, TOO_LITERAL, etc."
+        text comments "Optional user notes"
+        timestamp created_at "Submission timestamp"
+    }
+
+    ANALYTICS_DAILY_METRICS {
+        bigserial id PK "Primary Key"
+        date metric_date "Aggregation date"
+        varchar provider "huggingface, cohere, mock, opus100_baseline"
+        varchar source_language "ISO code"
+        varchar target_language "ISO code"
+        varchar style_option "Style category"
+        bigint total_requests "Total generated in slice"
+        float avg_latency_ms "Mean latency"
+        float p95_latency_ms "95th percentile latency"
+        float avg_quality_score "Mean computed Q-Score"
+        bigint good_feedback_count "Positive count"
+        bigint poor_feedback_count "Negative count"
+        float poor_feedback_rate "Poor / Total feedback"
+        timestamp computed_at "Batch calculation timestamp"
+    }
+
+    ANALYTICS_ANOMALIES {
+        bigserial id PK "Primary Key"
+        uuid translation_id FK "References TRANSLATIONS(id)"
+        uuid option_id FK "References TRANSLATION_OPTIONS(id)"
+        varchar anomaly_type "LENGTH_DISCREPANCY, LATENCY_SPIKE, etc."
+        float anomaly_score "Severity metric"
+        text diagnostic_details "JSON context payload"
+        timestamp detected_at "Detection timestamp"
+    }
