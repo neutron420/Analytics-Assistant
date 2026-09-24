@@ -182,11 +182,10 @@ Pre-configured Grafana instance provisioning PostgreSQL data source:
 ---
 
 ## 14. Current Implementation Status
-- **Current Phase**: **PHASE 1: Documentation and Architecture (Updated for HF Provider)**
-- **Overall Status**: `DOCUMENTATION UPDATED` (Provider abstraction established with Hugging Face as default, Cohere as optional, Mock for testing).
-- **Environment Status**: Virtual environment created, core packages installed.
+- **Current Phase**: **PHASE 4: Translation Abstraction & Core Engine**
+- **Overall Status**: `PHASE 4 COMPLETED` (Pydantic DTOs, BaseTranslationProvider, MockTranslationProvider, HuggingFaceTranslationProvider, and TranslationService implemented and validated with 100% test pass rate).
+- **Environment Status**: Virtual environment active, dependencies installed, `.env` configured with user HF_TOKEN.
 - **Data Status**: 68,000 raw OPUS-100 records ingested.
-- **Application Code Status**: `NOT STARTED` (Strict documentation-first mandate in effect).
 
 ---
 
@@ -201,25 +200,34 @@ Pre-configured Grafana instance provisioning PostgreSQL data source:
 - [x] Initialized Python virtual environment `.venv` and verified core imports.
 - [x] Ingested 68,000 baseline OPUS-100 records across 6 pairs in `data/raw/opus100/`.
 - [x] Updated architectural foundation to make **Hugging Face Inference Providers** the default provider and **Cohere** an optional future provider.
+- [x] Configured user's Hugging Face token in local `.env` (gitignored, securely stored).
+- [x] Created `src/config.py` with typed Pydantic Settings.
+- [x] Implemented `src/translation/models.py` (`TranslationRequestDTO`, `TranslationOptionDTO`, `TranslationResultDTO`).
+- [x] Implemented `src/translation/providers/base.py` (`BaseTranslationProvider` interface).
+- [x] Implemented `src/translation/providers/mock_provider.py` (offline deterministic testing provider).
+- [x] Implemented `src/translation/providers/huggingface_provider.py` (Hugging Face Inference Providers integration with multi-style prompt and exponential retry).
+- [x] Implemented `src/translation/service.py` (`TranslationService` provider-agnostic orchestrator with latency measurement).
+- [x] Created `pytest.ini` and comprehensive unit tests in `tests/unit/test_translation_service.py` (all 7 tests passing).
+- [x] Verified live inference test with Hugging Face Inference Providers producing Literal, Natural, and Formal variants.
 
 ---
 
 ## 16. Phased Implementation Roadmap
-- [ ] **Phase 1**: Documentation and architecture (Current - Completed)
-- [ ] **Phase 2**: Project skeleton and configuration
-- [ ] **Phase 3**: PostgreSQL database
-- [ ] **Phase 4**: Translation abstraction (`TranslationService`, `BaseTranslationProvider`)
-- [ ] **Phase 5**: Hugging Face provider (`HuggingFaceTranslationProvider`)
-- [ ] **Phase 6**: Mock provider (`MockTranslationProvider`)
-- [ ] **Phase 7**: Gradio UI
-- [ ] **Phase 8**: Feedback system
-- [ ] **Phase 9**: OPUS-100 dataset ingestion (Raw baseline already staged)
-- [ ] **Phase 10**: PySpark ETL
-- [ ] **Phase 11**: Quality analytics
-- [ ] **Phase 12**: Grafana dashboards
-- [ ] **Phase 13**: Testing
-- [ ] **Phase 14**: Dockerization
-- [ ] **Phase 15**: Optional Cohere provider (Deferred / Non-blocking)
+- [x] **Phase 1**: Documentation and architecture
+- [x] **Phase 2**: Project skeleton and configuration
+- [x] **Phase 4**: Translation abstraction (`TranslationService`, `BaseTranslationProvider`, DTOs)
+- [x] **Phase 5**: Hugging Face provider (`HuggingFaceTranslationProvider`)
+- [x] **Phase 6**: Mock provider (`MockTranslationProvider`)
+- [x] **Phase 9**: OPUS-100 dataset ingestion (68,000 baseline records staged)
+- [ ] **Phase 3**: PostgreSQL database (Models, tables, connection engine)
+- [ ] **Phase 7**: Gradio UI (Interactive translation web interface)
+- [ ] **Phase 8**: Feedback system (Feedback ingestion and persistence)
+- [ ] **Phase 10**: PySpark ETL (Cleaning, features, and JDBC egress)
+- [ ] **Phase 11**: Quality analytics (Quality scoring & anomaly detection)
+- [ ] **Phase 12**: Grafana dashboards (Observability panels)
+- [ ] **Phase 13**: Testing (Extended integration & Spark tests)
+- [ ] **Phase 14**: Dockerization (PostgreSQL & Grafana compose setup)
+- [ ] **Phase 15**: Optional Cohere provider (Non-blocking)
 
 ---
 
