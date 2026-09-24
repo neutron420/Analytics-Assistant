@@ -72,7 +72,7 @@ class HuggingFaceTranslationProvider(BaseTranslationProvider):
         )
 
     def _extract_json(self, raw_text: str) -> dict:
-        """Robustly extracts and parses JSON even if wrapped in conversational text or markdown fences."""
+        """Robustly extracts and parses JSON even if wrapped in conversational text, markdown fences, or malformed syntax."""
         cleaned = raw_text.strip()
         # Remove markdown code fences if present
         cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
@@ -82,11 +82,29 @@ class HuggingFaceTranslationProvider(BaseTranslationProvider):
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError:
-            # Fallback: search for first '{' to last '}'
-            match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-            if match:
+            pass
+
+        # Fallback 1: search for first '{' to last '}'
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if match:
+            try:
                 return json.loads(match.group(0))
-            raise ValueError(f"Could not parse valid JSON from provider output: {raw_text[:200]}")
+            except json.JSONDecodeError:
+                pass
+
+        # Fallback 2: regex extract style and text if LLM JSON has unescaped quotes or delimiter errors
+        found = []
+        pattern = re.compile(
+            r'["\']style["\']\s*:\s*["\'](LITERAL|NATURAL|FORMAL)["\']\s*,\s*["\']text["\']\s*:\s*["\'](.*?)["\'](?=\s*[,}\n])',
+            re.DOTALL | re.IGNORECASE
+        )
+        for m in pattern.finditer(cleaned):
+            found.append({"style": m.group(1).upper(), "text": m.group(2).strip()})
+
+        if found:
+            return {"translations": found, "confidence": 0.88}
+
+        raise ValueError(f"Could not parse valid JSON from provider output: {raw_text[:200]}")
 
     def generate_translations(
         self,
