@@ -52,11 +52,15 @@ class HuggingFaceTranslationProvider(BaseTranslationProvider):
 
     def _build_system_prompt(self, src_lang_name: str, tgt_lang_name: str) -> str:
         return (
-            f"You are an expert multilingual translation engine specializing in translating from {src_lang_name} to {tgt_lang_name}.\n"
-            "Translate the source text into three distinct styles:\n"
-            "1. LITERAL: Direct, syntax-faithful lexical translation preserving word order where possible.\n"
-            "2. NATURAL: Fluent, everyday idiomatic translation as spoken by native speakers.\n"
-            "3. FORMAL: Polite, elevated, grammatically precise translation appropriate for professional/official contexts.\n\n"
+            f"You are an expert multilingual translation engine. Your task is to translate text from {src_lang_name} into {tgt_lang_name}.\n\n"
+            f"CRITICAL INSTRUCTION:\n"
+            f"- Every single translated sentence in all 3 styles MUST be written in {tgt_lang_name}.\n"
+            f"- Under NO circumstances should any translation be output in {src_lang_name}.\n"
+            f"- Do NOT paraphrase or rephrase in {src_lang_name}. Translate into {tgt_lang_name}!\n\n"
+            f"Translate the given text into three distinct styles in {tgt_lang_name}:\n"
+            f"1. LITERAL: Direct, syntax-faithful translation in {tgt_lang_name} preserving word order where possible.\n"
+            f"2. NATURAL: Fluent, everyday idiomatic translation in {tgt_lang_name} as spoken by native speakers.\n"
+            f"3. FORMAL: Polite, professional, grammatically precise translation in {tgt_lang_name} for official contexts.\n\n"
             "You MUST respond ONLY with a valid JSON object matching this schema:\n"
             "{\n"
             '  "translations": [\n'
@@ -67,6 +71,7 @@ class HuggingFaceTranslationProvider(BaseTranslationProvider):
             '  "confidence": 0.95\n'
             "}\n"
             "Strict rules:\n"
+            f"- All 3 'text' values MUST be completely in {tgt_lang_name}!\n"
             "- Output valid JSON only. Do not add markdown code fences (```json) or conversational preamble.\n"
             "- Accurately preserve named entities, numbers, and technical terms."
         )
@@ -120,7 +125,11 @@ class HuggingFaceTranslationProvider(BaseTranslationProvider):
         tgt_name = LANGUAGE_NAMES.get(target_lang.lower(), target_lang)
 
         system_prompt = self._build_system_prompt(src_name, tgt_name)
-        user_prompt = f"<source_text>\n{source_text.strip()}\n</source_text>"
+        user_prompt = (
+            f"Translate the following {src_name} text into {tgt_name}. "
+            f"Every translated option MUST be written completely in {tgt_name}:\n\n"
+            f"<source_text>\n{source_text.strip()}\n</source_text>"
+        )
 
         messages = [
             {"role": "system", "content": system_prompt},

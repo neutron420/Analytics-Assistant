@@ -36,6 +36,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SUPPORTED_LANGUAGES = {
+    "English (en)": "en",
     "Hindi (hi)": "hi",
     "Spanish (es)": "es",
     "French (fr)": "fr",
@@ -376,7 +377,8 @@ body, .gradio-container {
 
 def perform_translation(
     source_text: str,
-    target_lang_label: str,
+    target_lang_label: str = "Hindi (hi)",
+    source_lang_label: str = "English (en)",
 ) -> Tuple[str, str, str, str, Dict[str, str], gr.Radio]:
     """Generates 3 style options via TranslationService and persists to PostgreSQL."""
     clean_text = (source_text or "").strip()
@@ -390,11 +392,22 @@ def perform_translation(
             gr.Radio(value="Natural / Idiomatic"),
         )
 
+    source_code = SUPPORTED_LANGUAGES.get(source_lang_label, "en")
     target_code = SUPPORTED_LANGUAGES.get(target_lang_label, "hi")
+
+    if source_code == target_code:
+        return (
+            f"⚠️ Source and target language cannot be the same ({source_lang_label}). Please choose different languages.",
+            "",
+            "",
+            "",
+            {},
+            gr.Radio(value="Natural / Idiomatic"),
+        )
 
     request_dto = TranslationRequestDTO(
         source_text=clean_text,
-        source_language="en",
+        source_language=source_code,
         target_language=target_code,
         requested_styles=["LITERAL", "NATURAL", "FORMAL"],
     )
@@ -800,17 +813,18 @@ def create_app() -> gr.Blocks:
                     with gr.Row():
                         src_lang = gr.Dropdown(
                             label="Source Language",
-                            choices=["English (en)"],
+                            choices=list(SUPPORTED_LANGUAGES.keys()),
                             value="English (en)",
-                            interactive=False,
-                            scale=1,
+                            interactive=True,
+                            scale=3,
                         )
+                        swap_lang_btn = gr.Button("⇄ Swap", size="sm", scale=1, elem_classes=["swap-btn"])
                         tgt_lang = gr.Dropdown(
                             label="Target Language",
                             choices=list(SUPPORTED_LANGUAGES.keys()),
                             value="Hindi (hi)",
                             interactive=True,
-                            scale=1,
+                            scale=3,
                         )
 
                     source_input = gr.Textbox(
@@ -1084,10 +1098,17 @@ def create_app() -> gr.Blocks:
             outputs=[source_counter],
         )
 
+        # Language swap action
+        swap_lang_btn.click(
+            fn=lambda s, t: (t, s),
+            inputs=[src_lang, tgt_lang],
+            outputs=[src_lang, tgt_lang],
+        )
+
         # Translation execution
         translate_btn.click(
             fn=perform_translation,
-            inputs=[source_input, tgt_lang],
+            inputs=[source_input, tgt_lang, src_lang],
             outputs=[
                 status_output,
                 natural_output,

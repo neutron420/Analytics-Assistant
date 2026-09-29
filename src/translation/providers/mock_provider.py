@@ -14,8 +14,12 @@ from src.translation.models import TranslationOptionDTO
 from src.translation.providers.base import BaseTranslationProvider
 
 
-# Sample deterministic vocabulary dictionary for realistic mock strings
 MOCK_LANGUAGE_DICTIONARIES = {
+    "en": {
+        "LITERAL": "[Literal] {text}",
+        "NATURAL": "[Natural] {text}",
+        "FORMAL": "[Formal] {text}",
+    },
     "hi": {
         "LITERAL": "[शब्दशः] {text}",
         "NATURAL": "[स्वाभाविक] {text}",

@@ -1,5 +1,5 @@
 # Translation Quality Analytics & Continuous Improvement Report
-**Generated At:** 2026-09-24 15:11:08 UTC  
+**Generated At:** 2026-09-29 15:38:37 UTC  
 **Active AI Provider:** `HUGGINGFACE` (`meta-llama/Llama-3.1-8B-Instruct`)  
 **Database Health:** `HEALTHY`  
 **Report Scope:** Live Operational Telemetry + PySpark Historical Batch Data  
@@ -10,12 +10,12 @@
 
 | Metric | Measured Value | Operational Baseline | Status |
 | :--- | :--- | :--- | :--- |
-| **Total Translations** | **25** | N/A | Active Logging |
-| **Mean Roundtrip Latency** | **8.70s** | $< 8.00$s | ATTENTION |
-| **System Quality Score** | **78.0 / 100** (`GOOD`) | >= 75.0 / 100 | NORMAL |
-| **Evaluated Candidates** | **14** (9 Good / 5 Poor) | N/A | Human-in-the-Loop |
-| **Poor-Quality Defect Rate** | **35.7%** | < 20.0% | DEFECT SPIKE |
-| **Flagged Operational Anomalies** | **1** | 0 | TRIAGE NEEDED |
+| **Total Translations** | **37** | N/A | Active Logging |
+| **Mean Roundtrip Latency** | **9.86s** | $< 8.00$s | ATTENTION |
+| **System Quality Score** | **82.3 / 100** (`GOOD`) | >= 75.0 / 100 | NORMAL |
+| **Evaluated Candidates** | **19** (12 Good / 7 Poor) | N/A | Human-in-the-Loop |
+| **Poor-Quality Defect Rate** | **36.8%** | < 20.0% | DEFECT SPIKE |
+| **Flagged Operational Anomalies** | **7** | 0 | TRIAGE NEEDED |
 
 ---
 
@@ -23,10 +23,11 @@
 
 | Language Pair | Volume | Avg Latency | Quality Score | Observed Quality | Defect Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `EN → HI` | 18 | 8.91s | 78.0/100 | 58.3% | 41.7% |
-| `EN → ES` | 3 | 3.83s | 88.0/100 | 100.0% | 0.0% |
-| `EN → JA` | 1 | 4.74s | 88.0/100 | 100.0% | 0.0% |
-| `EN → DE` | 1 | 6.61s | 88.0/100 | 100.0% | 0.0% |
+| `EN → HI` | 20 | 8.35s | 83.6/100 | 61.5% | 38.5% |
+| `EN → JA` | 2 | 4.07s | 92.0/100 | 100.0% | 0.0% |
+| `HI → EN` | 7 | 18.89s | 81.7/100 | 66.7% | 33.3% |
+| `EN → ES` | 4 | 3.51s | 92.0/100 | 100.0% | 0.0% |
+| `EN → DE` | 2 | 4.59s | 60.0/100 | 0.0% | 100.0% |
 | `EN → BN` | 2 | 17.15s | 88.0/100 | 100.0% | 0.0% |
 
 ---
@@ -37,8 +38,9 @@ Distribution of defects reported by human evaluators:
 
 | Defect Category | Flagged Occurrences | Defect Share (%) |
 | :--- | :--- | :--- |
-| `OTHER` | 2 | 40.0% |
-| `TOO_LITERAL` | 3 | 60.0% |
+| `OTHER` | 2 | 28.6% |
+| `TOO_LITERAL` | 4 | 57.1% |
+| `TERMINOLOGY_ISSUE` | 1 | 14.3% |
 
 ---
 
@@ -48,18 +50,18 @@ User preference breakdown across generated translation variants:
 
 | Translation Variant | Evaluator Selections | Share (%) |
 | :--- | :--- | :--- |
-| `Natural` | 3 | 75.0% |
+| `Natural` | 4 | 80.0% |
 | `Formal` | 0 | 0.0% |
-| `Literal` | 1 | 25.0% |
+| `Literal` | 1 | 20.0% |
 
 ---
 
 ## 5. Continuous Improvement Recommendations
 
 Based on empirical feedback patterns and operational anomaly detection:
-- **Insight**: 'Too Literal' is currently the most frequently reported defect reason (60.0% of negative feedback).
-- **Insight**: 'Natural' variant demonstrates the highest user selection rate (75.0% of preferred choices).
-- **Insight**: Operational anomaly detection flagged 1 translation requests requiring review.
+- **Insight**: 'Too Literal' is currently the most frequently reported defect reason (57.1% of negative feedback).
+- **Insight**: 'Natural' variant demonstrates the highest user selection rate (80.0% of preferred choices).
+- **Insight**: Operational anomaly detection flagged 7 translation requests requiring review.
 
 **Recommended Action Items:**
 1. If `TOO_LITERAL` dominates, refine provider system instructions to prioritize idiomatic phrasing and target-language colloquial flow.
@@ -79,10 +81,10 @@ Below is the verified audit report generated from the latest PySpark big-data ba
 ETL DATA QUALITY REPORT
 ==============================================
 Input:
-68,010
+68,046
 
 Valid:
-66,431
+66,467
 
 Invalid:
 1,579
